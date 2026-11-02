@@ -1,0 +1,241 @@
+import { Request, Response } from 'express';
+import {
+  getBackendSupabaseConfig,
+  saveBackendSupabaseConfig,
+  clearBackendSupabaseConfig,
+  getSupabaseDb,
+} from '../config/supabase';
+import { SystemModel } from '../models/SystemModel';
+import { HrModel } from '../models/HrModel';
+import { CustomerModel } from '../models/CustomerModel';
+import { ProjectModel } from '../models/ProjectModel';
+import { FinanceModel } from '../models/FinanceModel';
+import { AttendancePayrollModel } from '../models/AttendancePayrollModel';
+
+export class SystemController {
+  static async checkHealth(_req: Request, res: Response) {
+    const cfg = getBackendSupabaseConfig();
+    const db = getSupabaseDb();
+    if (!db || cfg.source === 'none') {
+      res.json({
+        configured: false,
+        connected: false,
+        schemaReady: false,
+        source: 'none',
+        url: '',
+        errorMessage: 'Backend chưa được cấu hình SUPABASE_URL và SUPABASE_ANON_KEY.',
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await db.from('roles').select('id').limit(1);
+      if (error) {
+        const msg = error.message || '';
+        if (
+          msg.includes('relation') ||
+          msg.includes('does not exist') ||
+          error.code === '42P01' ||
+          error.code === 'PGRST205'
+        ) {
+          res.json({
+            configured: true,
+            connected: true,
+            schemaReady: false,
+            source: cfg.source,
+            url: cfg.url,
+            errorMessage: 'Backend đã kết nối Supabase nhưng chưa chạy file khởi tạo bảng (supabase/schema.sql).',
+          });
+          return;
+        }
+        res.json({
+          configured: true,
+          connected: false,
+          schemaReady: false,
+          source: cfg.source,
+          url: cfg.url,
+          errorMessage: `Lỗi kết nối Supabase từ Backend: ${msg}`,
+        });
+        return;
+      }
+
+      res.json({
+        configured: true,
+        connected: true,
+        schemaReady: Array.isArray(data),
+        source: cfg.source,
+        url: cfg.url,
+      });
+    } catch (err: unknown) {
+      res.json({
+        configured: true,
+        connected: false,
+        schemaReady: false,
+        source: cfg.source,
+        url: cfg.url,
+        errorMessage: err instanceof Error ? err.message : 'Không thể kết nối tới Supabase',
+      });
+    }
+  }
+
+  static async saveSupabaseConfig(req: Request, res: Response) {
+    const { url, anonKey } = req.body;
+    if (!url || !anonKey) {
+      res.status(400).json({ ok: false, error: 'Vui lòng cung cấp đầy đủ URL và Anon Key.' });
+      return;
+    }
+    saveBackendSupabaseConfig(url, anonKey);
+    res.json({ ok: true });
+  }
+
+  static async clearSupabaseConfig(_req: Request, res: Response) {
+    clearBackendSupabaseConfig();
+    res.json({ ok: true });
+  }
+
+  static async getBootstrapData(_req: Request, res: Response) {
+    try {
+      const [
+        roles,
+        rolePermissions,
+        departments,
+        teams,
+        shifts,
+        employees,
+        users,
+        employeeTransfers,
+        customers,
+        customerCareLogs,
+        projects,
+        projectAssignments,
+        contractRevisions,
+        payments,
+        expenseCategories,
+        expenses,
+        costAllocations,
+        workLogs,
+        projectFiles,
+        attendance,
+        leaveRequests,
+        overtimeRequests,
+        payrolls,
+        payrollDetails,
+        settings,
+        notifications,
+        auditLogs,
+      ] = await Promise.all([
+        SystemModel.getRoles(),
+        SystemModel.getRolePermissions(),
+        HrModel.getDepartments(),
+        HrModel.getTeams(),
+        AttendancePayrollModel.getShifts(),
+        HrModel.getEmployees(),
+        HrModel.getUsers(),
+        HrModel.getEmployeeTransfers(),
+        CustomerModel.getAll(),
+        CustomerModel.getCareLogs(),
+        ProjectModel.getAll(),
+        ProjectModel.getAssignments(),
+        ProjectModel.getContractRevisions(),
+        FinanceModel.getPayments(),
+        FinanceModel.getExpenseCategories(),
+        FinanceModel.getExpenses(),
+        FinanceModel.getCostAllocations(),
+        ProjectModel.getWorkLogs(),
+        ProjectModel.getProjectFiles(),
+        AttendancePayrollModel.getAttendance(),
+        AttendancePayrollModel.getLeaveRequests(),
+        AttendancePayrollModel.getOvertimeRequests(),
+        AttendancePayrollModel.getPayrolls(),
+        AttendancePayrollModel.getPayrollDetails(),
+        SystemModel.getSettings(),
+        SystemModel.getNotifications(),
+        SystemModel.getAuditLogs(),
+      ]);
+
+      res.json({
+        ok: true,
+        data: {
+          roles,
+          rolePermissions,
+          departments,
+          teams,
+          shifts,
+          employees,
+          users,
+          employeeTransfers,
+          customers,
+          customerCareLogs,
+          projects,
+          projectAssignments,
+          contractRevisions,
+          payments,
+          expenseCategories,
+          expenses,
+          costAllocations,
+          workLogs,
+          projectFiles,
+          attendance,
+          leaveRequests,
+          overtimeRequests,
+          payrolls,
+          payrollDetails,
+          settings,
+          notifications,
+          auditLogs,
+        },
+      });
+    } catch (err: unknown) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Lỗi tải dữ liệu từ Backend Model',
+      });
+    }
+  }
+
+  static async updateRoleConfig(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { dataScope, hiddenFields } = req.body;
+      const updated = await SystemModel.updateRoleConfig(String(id), dataScope, hiddenFields);
+      await SystemModel.writeAuditLog(
+        req.actor,
+        'Phân quyền',
+        'Cập nhật phạm vi và trường ẩn của vai trò',
+        String(id),
+        null,
+        { dataScope, hiddenFields }
+      );
+      res.json({ ok: true, data: updated });
+    } catch (err: unknown) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : 'Lỗi cập nhật quyền' });
+    }
+  }
+
+  static async saveSetting(req: Request, res: Response) {
+    try {
+      const { key, value } = req.body;
+      await SystemModel.upsertSetting(key, value);
+      await SystemModel.writeAuditLog(
+        req.actor,
+        'Cấu hình hệ thống',
+        `Cập nhật cấu hình: ${key}`,
+        key,
+        null,
+        { value }
+      );
+      res.json({ ok: true });
+    } catch (err: unknown) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : 'Lỗi lưu cấu hình' });
+    }
+  }
+
+  static async markNotificationRead(req: Request, res: Response) {
+    try {
+      await SystemModel.markNotificationRead(String(req.params.id));
+      res.json({ ok: true });
+    } catch (err: unknown) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : 'Lỗi cập nhật thông báo' });
+    }
+  }
+}
