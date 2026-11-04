@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Database } from 'lucide-react';
+import { Lock, Unlock, Database, Wifi, Trash2 } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { DataScope } from '../types/database';
 import { formatDateTime } from '../lib/format';
@@ -21,29 +21,50 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
     roles,
     users,
     employees,
+    currentEmployee,
+    currentRole,
     projectStatuses,
     jobTypes,
     defaultVatRate,
     standardWorkDays,
+    officeAllowedIps,
+    currentClientIp,
     auditLogs,
     updateRoleConfig,
     toggleUserLock,
     saveSystemSetting,
   } = useErp();
 
+  const roleCode = currentRole?.code || currentEmployee?.role_code || '';
+  const isAdmin = roleCode === 'super_admin' || roleCode === 'admin';
+
   const [tab, setTab] = useState<'rbac' | 'accounts' | 'catalogs' | 'audit'>('rbac');
   const [newStatus, setNewStatus] = useState('');
   const [newJobType, setNewJobType] = useState('');
+  const [newOfficeIp, setNewOfficeIp] = useState('');
   const [vatInput, setVatInput] = useState(defaultVatRate);
   const [workDaysInput, setWorkDaysInput] = useState(standardWorkDays);
 
   const handleToggleHiddenField = async (roleId: string, currentHidden: string[], fieldKey: string) => {
+    if (!isAdmin) return;
     const role = roles.find((r) => r.id === roleId);
     if (!role) return;
     const exists = currentHidden.includes(fieldKey);
     const nextHidden = exists ? currentHidden.filter((f) => f !== fieldKey) : [...currentHidden, fieldKey];
     await updateRoleConfig(roleId, role.data_scope, nextHidden);
   };
+
+  if (!isAdmin) {
+    return (
+      <div className="bg-white rounded-2xl border border-rose-200 p-8 text-center space-y-2">
+        <Lock className="w-8 h-8 text-rose-500 mx-auto" />
+        <div className="text-sm font-bold text-slate-900">Truy cập bị giới hạn</div>
+        <p className="text-xs text-slate-600">
+          Chỉ tài khoản Admin mới được phép xem và thao tác trên trang Cài đặt & Phân quyền.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -55,7 +76,7 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
               tab === 'rbac' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
             }`}
           >
-            1. Ma trận Phân quyền Đa tầng (Phần 11)
+            1. Ma trận Phân quyền Đa tầng
           </button>
           <button
             onClick={() => setTab('accounts')}
@@ -71,7 +92,7 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
               tab === 'catalogs' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
             }`}
           >
-            3. Cấu hình Trạng thái, Loại JOB & Tham số (Phần 19)
+            3. Cấu hình Trạng thái, Loại JOB & Tham số
           </button>
           <button
             onClick={() => setTab('audit')}
@@ -95,7 +116,7 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
       {tab === 'rbac' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="p-4 bg-slate-50 border-b border-slate-200 text-xs text-slate-600">
-            <strong>Phân quyền theo Phạm vi dữ liệu (Mục 11.2) & Phân quyền Trường dữ liệu nhạy cảm (Mục 11.4):</strong>{' '}
+            <strong>Phân quyền theo Phạm vi dữ liệu & Phân quyền Trường dữ liệu nhạy cảm:</strong>{' '}
             Cho phép cấu hình phạm vi nhìn thấy dữ liệu (Toàn công ty / Phòng ban / Nhóm / Cá nhân) và bật/tắt ẩn các
             trường tài chính nhạy cảm đối với từng vai trò.
           </div>
@@ -172,7 +193,7 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                 <th className="px-4 py-3">Vai trò</th>
                 <th className="px-4 py-3">Đăng nhập gần nhất</th>
                 <th className="px-4 py-3">Trạng thái</th>
-                <th className="px-4 py-3 text-right">Khóa / Mở khóa (Mục 11.6)</th>
+                <th className="px-4 py-3 text-right">Khóa / Mở khóa</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -220,12 +241,12 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
         </div>
       )}
 
-      {/* TAB 3: CẤU HÌNH ĐỘNG (PHẦN 19) */}
+      {/* TAB 3: CẤU HÌNH ĐỘNG */}
       {tab === 'catalogs' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
           <div className="bg-white rounded-2xl p-5 border border-slate-200 space-y-3">
             <h4 className="font-bold text-sm text-slate-900">
-              Danh sách Trạng thái Dự án (Mục 2.2 - Cho phép thêm/sửa động)
+              Danh sách Trạng thái Dự án
             </h4>
             <div className="flex gap-2">
               <input
@@ -293,7 +314,8 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                 <div className="flex gap-2">
                   <input
                     type="number"
-                    value={vatInput}
+                    placeholder="0"
+                    value={vatInput === 0 ? '' : vatInput}
                     onChange={(e) => setVatInput(Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300"
                   />
@@ -310,7 +332,8 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                 <div className="flex gap-2">
                   <input
                     type="number"
-                    value={workDaysInput}
+                    placeholder="26"
+                    value={workDaysInput === 0 ? '' : workDaysInput}
                     onChange={(e) => setWorkDaysInput(Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300"
                   />
@@ -321,6 +344,74 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                     Lưu
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Cấu hình mạng Wi-Fi Công ty cho Chấm công Web */}
+            <div className="pt-4 border-t space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <Wifi className="w-4 h-4 text-indigo-600" /> Cấu hình mạng Wi-Fi Công ty hợp lệ để Chấm công Web
+                </label>
+                {currentClientIp && (
+                  <button
+                    onClick={async () => {
+                      const updated = Array.from(new Set([...officeAllowedIps, currentClientIp]));
+                      await saveSystemSetting('office_allowed_ips', updated);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer"
+                  >
+                    + Đặt mạng hiện tại làm Wi-Fi Công ty
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Nếu đã khóa mạng Wi-Fi, nhân viên bắt buộc phải kết nối đúng Wi-Fi công ty mới được phép Check-in / Check-out. Nếu để trống sẽ cho phép mọi mạng.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={newOfficeIp}
+                  onChange={(e) => setNewOfficeIp(e.target.value)}
+                  placeholder="Nhập địa chỉ IP hoặc DDNS công ty..."
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-300 font-mono"
+                />
+                <button
+                  onClick={async () => {
+                    const clean = newOfficeIp.trim();
+                    if (!clean) return;
+                    const updated = Array.from(new Set([...officeAllowedIps, clean]));
+                    await saveSystemSetting('office_allowed_ips', updated);
+                    setNewOfficeIp('');
+                  }}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer"
+                >
+                  Thêm mạng
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {officeAllowedIps.length === 0 ? (
+                  <span className="text-slate-400 italic">Chưa giới hạn mạng Wi-Fi (Đang cho phép mọi mạng chấm công)</span>
+                ) : (
+                  officeAllowedIps.map((ip, idx) => (
+                    <span
+                      key={ip}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold"
+                    >
+                      Mạng Wi-Fi Công ty #{idx + 1} (Đã ẩn IP)
+                      <button
+                        onClick={async () => {
+                          const updated = officeAllowedIps.filter((item) => item !== ip);
+                          await saveSystemSetting('office_allowed_ips', updated);
+                        }}
+                        className="text-rose-600 hover:text-rose-800 cursor-pointer"
+                        title="Xóa cấu hình mạng này"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  ))
+                )}
               </div>
             </div>
           </div>

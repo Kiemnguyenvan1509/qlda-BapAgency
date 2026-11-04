@@ -1,7 +1,33 @@
+import { Request } from 'express';
+import { HrModel } from '../models/HrModel';
+
 export function getTodayISO(): string {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60000;
   return new Date(now.getTime() - offset).toISOString().split('T')[0];
+}
+
+export function extractClientIp(req: Request, clientPublicIp?: string): string {
+  const cleanClientIp = String(clientPublicIp || '').trim();
+  const xff = String(req.headers['x-forwarded-for'] || '')
+    .split(',')[0]
+    .trim();
+  const cfIp = String(req.headers['cf-connecting-ip'] || '').trim();
+  const realIp = String(req.headers['x-real-ip'] || '').trim();
+  const rawSocketIp = String(req.ip || req.socket?.remoteAddress || '').trim();
+  const normalizedServerIp = rawSocketIp.replace(/^::ffff:/, '');
+
+  const headerIp = xff || cfIp || realIp;
+  if (headerIp && headerIp !== '::1' && headerIp !== '127.0.0.1') {
+    return headerIp.replace(/^::ffff:/, '');
+  }
+  if (cleanClientIp) {
+    return cleanClientIp;
+  }
+  if (normalizedServerIp === '::1') {
+    return '127.0.0.1';
+  }
+  return normalizedServerIp || '127.0.0.1';
 }
 
 export function generateSeqCode(prefix: string, count: number): string {
@@ -30,4 +56,31 @@ export function calculateTaxes(
   const beforeTax = Math.round(afterTax / (1 + cleanRate / 100));
   const vatAmount = afterTax - beforeTax;
   return { beforeTax, vatAmount, afterTax };
+}
+
+export async function isAdminActor(req: Request): Promise<boolean> {
+  if (!req.actor?.userId) {
+    return req.actor?.actorRole === 'Super Admin' || req.actor?.actorRole === 'Admin';
+  }
+  const actorUser = await HrModel.getUserById(req.actor.userId);
+  if (!actorUser || !actorUser.employee_id) {
+    return req.actor.actorRole === 'Super Admin' || req.actor.actorRole === 'Admin';
+  }
+  const actorEmp = await HrModel.getEmployeeById(actorUser.employee_id);
+  if (actorEmp) {
+    return actorEmp.role_code === 'super_admin' || actorEmp.role_code === 'admin';
+  }
+  return req.actor.actorRole === 'Super Admin' || req.actor.actorRole === 'Admin';
+}
+
+export async function verifySelfOrAdmin(req: Request, targetEmployeeId: string): Promise<string | null> {
+  if (!req.actor?.userId) return null;
+  const actorUser = await HrModel.getUserById(req.actor.userId);
+  if (!actorUser || !actorUser.employee_id) return null;
+
+  const isAdmin = await isAdminActor(req);
+  if (!isAdmin && actorUser.employee_id !== targetEmployeeId) {
+    return 'Bạn chỉ được phép chấm công cho chính mình. Chỉ Admin mới có quyền chấm công cho nhân sự khác.';
+  }
+  return null;
 }

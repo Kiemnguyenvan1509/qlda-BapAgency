@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { HrModel } from '../models/HrModel';
 import { SystemModel } from '../models/SystemModel';
 import { AttendancePayrollModel } from '../models/AttendancePayrollModel';
+import { isAdminActor } from '../utils/helpers';
 
 export class AuthController {
   static async login(req: Request, res: Response) {
@@ -87,6 +88,14 @@ export class AuthController {
 
   static async toggleUserLock(req: Request, res: Response) {
     try {
+      if (!(await isAdminActor(req))) {
+        res.status(403).json({
+          ok: false,
+          error: 'Chỉ tài khoản Admin mới được phép khóa/mở khóa tài khoản.',
+        });
+        return;
+      }
+
       const { id } = req.params;
       const { isLocked } = req.body;
       const updated = await HrModel.updateUser(String(id), { is_locked: Boolean(isLocked) });

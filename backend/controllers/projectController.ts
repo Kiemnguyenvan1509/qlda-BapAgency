@@ -134,21 +134,21 @@ export class ProjectController {
         FinanceModel.getExpenses(),
       ]);
 
-      const hasPayments = payments.some((p) => p.project_id === id);
-      const hasExpenses = expenses.some((e) => e.project_id === id);
-      const hasSignedContract = proj.contract_status === 'Đã ký' || Number(proj.revenue_before_tax) > 0;
+      const hasConfirmedPayments = payments.some((p) => p.project_id === id && p.status === 'Đã xác nhận');
+      const hasApprovedExpenses = expenses.some((e) => e.project_id === id && e.status === 'Đã duyệt');
+      const isSuperAdmin = req.actor.actorRole === 'Super Admin' || req.actor.actorRole === 'Admin';
 
-      if (hasPayments || hasExpenses || hasSignedContract) {
+      if ((hasConfirmedPayments || hasApprovedExpenses) && !isSuperAdmin) {
         res.status(400).json({
           ok: false,
           error:
-            'QUY TẮC BẮT BUỘC SỐ 10 (Backend Guard): Không được xóa vĩnh viễn dự án đã phát sinh hợp đồng, doanh thu, thực thu hoặc chi phí. Vui lòng sử dụng chức năng "Lưu trữ dự án" hoặc chuyển trạng thái "Hủy dự án".',
+            'QUY TẮC BẮT BUỘC SỐ 10 (Backend Guard): Không được xóa vĩnh viễn dự án đã phát sinh thực thu hoặc chi phí đã duyệt (chỉ Super Admin mới được quyền xóa). Vui lòng sử dụng chức năng "Lưu trữ dự án" hoặc chuyển trạng thái "Hủy dự án".',
         });
         return;
       }
 
       await ProjectModel.deleteById(id);
-      await SystemModel.writeAuditLog(req.actor, 'Dự án', 'Xóa dự án chưa phát sinh tài chính', id, proj, null);
+      await SystemModel.writeAuditLog(req.actor, 'Dự án', 'Xóa dự án', id, proj, null);
       res.json({ ok: true });
     } catch (err: unknown) {
       res.status(400).json({ ok: false, error: err instanceof Error ? err.message : 'Lỗi xóa dự án' });

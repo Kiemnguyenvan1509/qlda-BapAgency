@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   FolderKanban,
@@ -85,7 +85,47 @@ const MainShell: React.FC = () => {
   const [showExcelModal, setShowExcelModal] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
 
+  const roleCode = currentRole?.code || currentEmployee?.role_code || '';
+  const isAdmin = roleCode === 'super_admin' || roleCode === 'admin';
+  const visibleNavItems = NAV_ITEMS.filter((item) => item.id !== 'settings' || isAdmin);
+
+  useEffect(() => {
+    if (!isAdmin && activeModule === 'settings') {
+      setActiveModule('dashboard');
+    }
+  }, [isAdmin, activeModule]);
+
+  // Tự động chuẩn hóa mọi ô nhập số (input[type="number"]): loại bỏ số 0 thừa ở đầu khi gõ phím (VD: 020 -> 20, 012000 -> 12000)
+  useEffect(() => {
+    const handleNumberInput = (e: Event) => {
+      const target = e.target as HTMLInputElement | null;
+      if (target && target.tagName === 'INPUT' && target.type === 'number') {
+        if (/^0\d+/.test(target.value)) {
+          target.value = target.value.replace(/^0+(?=\d)/, '');
+        }
+      }
+    };
+    document.addEventListener('input', handleNumberInput, true);
+    return () => document.removeEventListener('input', handleNumberInput, true);
+  }, []);
+
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  // Khi đang tải dữ liệu lần đầu và chưa có phiên đăng nhập -> Hiển thị màn hình chờ BAPAGENCY
+  if (loading && !currentUser) {
+    return (
+      <div className="min-h-screen bg-[#050814] flex flex-col items-center justify-center p-4 text-white space-y-4">
+        <div className="w-24 h-24 rounded-2xl overflow-hidden border border-slate-700/60 shadow-xl bg-[#050814]">
+          <img src="/bap-logo.png" alt="BAPAGENCY Logo" className="w-full h-full object-cover" />
+        </div>
+        <div className="text-lg font-extrabold tracking-widest">BAPAGENCY</div>
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+          <span>Đang tải hệ thống...</span>
+        </div>
+      </div>
+    );
+  }
 
   // Nếu chưa kết nối Supabase hoặc chưa tạo bảng SQL -> Mở cửa sổ Hướng dẫn & Kết nối Supabase
   if (!loading && (!health.connected || !health.schemaReady)) {
@@ -96,8 +136,8 @@ const MainShell: React.FC = () => {
     );
   }
 
-  // Nếu đã kết nối Supabase nhưng chưa đăng nhập (hoặc database chưa có user đầu tiên)
-  if (!loading && !currentUser) {
+  // Bắt buộc đăng nhập mới được vào Dashboard
+  if (!currentUser) {
     return (
       <>
         <AuthGate onOpenSupabaseSetup={() => setShowSupabaseModal(true)} />
@@ -110,7 +150,7 @@ const MainShell: React.FC = () => {
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-900">
-      {/* Sidebar trái (Mục 13.2) */}
+      {/* Sidebar trái */}
       <aside
         className={`${
           sidebarOpen ? 'w-64' : 'w-16'
@@ -119,12 +159,14 @@ const MainShell: React.FC = () => {
         <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800">
           {sidebarOpen && (
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-extrabold text-sm">
-                ERP
-              </div>
+              <img
+                src="/bap-logo.png"
+                alt="BAPAGENCY"
+                className="w-9 h-9 rounded-xl object-cover border border-slate-700 shrink-0"
+              />
               <div>
-                <div className="text-xs font-extrabold text-white tracking-wide">QUẢN TRỊ DỰ ÁN</div>
-                <div className="text-[10px] text-slate-400">Nhân sự • Tài chính • Công</div>
+                <div className="text-xs font-extrabold text-white tracking-wider">BAPAGENCY</div>
+                <div className="text-[10px] text-slate-400">Quản trị Dự án & Nhân sự</div>
               </div>
             </div>
           )}
@@ -137,7 +179,7 @@ const MainShell: React.FC = () => {
         </div>
 
         <nav className="flex-1 p-2.5 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const active = activeModule === item.id;
             return (
               <button
@@ -160,7 +202,7 @@ const MainShell: React.FC = () => {
           })}
         </nav>
 
-        {sidebarOpen && (
+        {sidebarOpen && isAdmin && (
           <div className="p-3 border-t border-slate-800 space-y-2 text-xs">
             <button
               onClick={() => setShowSupabaseModal(true)}
@@ -208,13 +250,15 @@ const MainShell: React.FC = () => {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
             </button>
 
-            <button
-              onClick={() => setShowSupabaseModal(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold cursor-pointer"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              Supabase Connected
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowSupabaseModal(true)}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold cursor-pointer"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Supabase Connected
+              </button>
+            )}
 
             {/* Chuông thông báo tự động (Mục 12.1) */}
             <div className="relative">
@@ -290,7 +334,7 @@ const MainShell: React.FC = () => {
           {activeModule === 'expenses' && <ExpensesPage />}
           {activeModule === 'profit' && <ProfitReportPage />}
           {activeModule === 'reports' && <ReportsPage onOpenExcelImport={() => setShowExcelModal(true)} />}
-          {activeModule === 'settings' && (
+          {activeModule === 'settings' && isAdmin && (
             <SettingsPage onOpenSupabaseModal={() => setShowSupabaseModal(true)} />
           )}
         </main>

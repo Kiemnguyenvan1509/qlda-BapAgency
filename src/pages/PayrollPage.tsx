@@ -50,14 +50,16 @@ export const PayrollPage: React.FC = () => {
           </select>
           <input
             type="number"
-            value={year}
+            placeholder="2026"
+            value={year === 0 ? '' : year}
             onChange={(e) => setYear(Number(e.target.value))}
             className="w-24 px-3 py-2 rounded-xl border border-slate-300 font-semibold"
           />
           <span className="text-slate-500 ml-2">Công chuẩn:</span>
           <input
             type="number"
-            value={stdDays}
+            placeholder="26"
+            value={stdDays === 0 ? '' : stdDays}
             onChange={(e) => setStdDays(Number(e.target.value))}
             className="w-16 px-2.5 py-2 rounded-xl border border-slate-300 text-center font-bold"
           />
@@ -88,7 +90,7 @@ export const PayrollPage: React.FC = () => {
                   onClick={() => changePayrollStatus(currentPayroll.id, 'Đã khóa')}
                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 text-white font-semibold cursor-pointer"
                 >
-                  <Lock className="w-3.5 h-3.5" /> Khóa bảng lương (Mục 9.3)
+                  <Lock className="w-3.5 h-3.5" /> Khóa bảng lương
                 </button>
               </>
             )}
@@ -96,7 +98,7 @@ export const PayrollPage: React.FC = () => {
               <button
                 onClick={() => {
                   const reason = window.prompt(
-                    'Nhập lý do Mở khóa bảng lương (Bắt buộc lưu nhật ký theo Mục 9.3):',
+                    'Nhập lý do Mở khóa bảng lương:',
                     'Điều chỉnh bổ sung phụ cấp/thưởng'
                   );
                   if (reason) changePayrollStatus(currentPayroll.id, 'Chờ duyệt', reason);
@@ -189,8 +191,9 @@ export const PayrollPage: React.FC = () => {
                       <td className="px-3 py-3 text-right">
                         <input
                           type="number"
+                          placeholder="0"
                           disabled={isLocked}
-                          value={d.allowance}
+                          value={d.allowance === 0 ? '' : d.allowance}
                           onChange={(e) =>
                             updatePayrollDetailItem(d.id, { allowance: Number(e.target.value) })
                           }
@@ -200,8 +203,9 @@ export const PayrollPage: React.FC = () => {
                       <td className="px-3 py-3 text-right">
                         <input
                           type="number"
+                          placeholder="0"
                           disabled={isLocked}
-                          value={d.bonus}
+                          value={d.bonus === 0 ? '' : d.bonus}
                           onChange={(e) => updatePayrollDetailItem(d.id, { bonus: Number(e.target.value) })}
                           className="w-24 px-2 py-1 text-right rounded border border-slate-300 bg-white disabled:bg-slate-100"
                         />
@@ -212,8 +216,9 @@ export const PayrollPage: React.FC = () => {
                       <td className="px-3 py-3 text-right">
                         <input
                           type="number"
+                          placeholder="0"
                           disabled={isLocked}
-                          value={d.valid_deductions}
+                          value={d.valid_deductions === 0 ? '' : d.valid_deductions}
                           onChange={(e) =>
                             updatePayrollDetailItem(d.id, { valid_deductions: Number(e.target.value) })
                           }
@@ -223,8 +228,9 @@ export const PayrollPage: React.FC = () => {
                       <td className="px-3 py-3 text-right">
                         <input
                           type="number"
+                          placeholder="0"
                           disabled={isLocked}
-                          value={d.advance_amount}
+                          value={d.advance_amount === 0 ? '' : d.advance_amount}
                           onChange={(e) =>
                             updatePayrollDetailItem(d.id, { advance_amount: Number(e.target.value) })
                           }

@@ -215,7 +215,7 @@ export const ReportsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
         <div>
           <h3 className="text-base font-bold flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-indigo-400" />
-            Trung Tâm 9 Báo Cáo Thống Kê & Chuyển Đổi Dữ Liệu (Mục 15 & Mục 16.7)
+            Trung Tâm 9 Báo Cáo Thống Kê & Chuyển Đổi Dữ Liệu
           </h3>
           <p className="text-xs text-slate-300 mt-1">
             Xuất trực tiếp dữ liệu thật từ Supabase ra file Excel (.xlsx) hoặc nhập file Excel từ hệ thống Google Sheets

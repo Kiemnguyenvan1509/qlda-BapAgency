@@ -36,6 +36,8 @@ export class ProjectModel {
 
   static async deleteById(id: string) {
     const db = requireSupabaseDb();
+    await db.from('payments').delete().eq('project_id', id);
+    await db.from('expenses').delete().eq('project_id', id);
     const { error } = await db.from('projects').delete().eq('id', id);
     if (error) throw error;
   }

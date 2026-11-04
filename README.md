@@ -115,7 +115,7 @@ Toàn bộ 30 bảng trong schema `public` của Supabase (được định ngh�
 
 | STT | Tên bảng trong Supabase | Ý nghĩa & Mục đích sử dụng trong hệ thống | Các cột & Liên kết quan trọng |
 | :-: | :--- | :--- | :--- |
-| **24** | **`attendance`** | **Nhật ký Chấm công Hàng ngày**: Lưu giờ `check_in`, `check_out`, phương thức chấm công (`Web`, `Điện thoại`, `QR Code`, `GPS`), số phút đi muộn (`late_minutes`), về sớm (`early_leave_minutes`), số công tính lương (`work_day_credit`), nội dung giải trình của nhân viên và lịch sử Quản lý duyệt sửa công (`adjustment_log`). | `employee_id`, `work_date` (Unique theo từng nhân viên/ngày), `check_in`, `check_out`, `late_minutes`, `explanation_status`, `adjustment_log` (JSONB). |
+| **24** | **`attendance`** | **Nhật ký Chấm công Hàng ngày**: Lưu giờ `check_in`, `check_out`, phương thức chấm công trực tuyến (`Web`), đối chiếu mạng Wi-Fi công ty (`ip_address`), số phút đi muộn (`late_minutes`), về sớm (`early_leave_minutes`), số công tính lương (`work_day_credit`), nội dung giải trình của nhân viên và lịch sử Quản lý duyệt sửa công (`adjustment_log`). | `employee_id`, `work_date` (Unique theo từng nhân viên/ngày), `check_in`, `check_out`, `ip_address`, `late_minutes`, `explanation_status`, `adjustment_log` (JSONB). |
 | **25** | **`leave_requests`** | **Đơn Xin Nghỉ phép**: Lưu các đơn xin nghỉ phép năm, nghỉ ốm, nghỉ việc riêng, nghỉ không lương... Hệ thống tự động đánh dấu đơn có hưởng lương (`is_paid`) hay không để cuối tháng cộng vào bảng lương khi đơn ở trạng thái `Đã duyệt`. | `employee_id`, `leave_type`, `is_paid`, `start_date`, `end_date`, `total_days`, `status`. |
 | **26** | **`overtime_requests`** | **Đơn Đăng ký Tăng ca (OT)**: Lưu phiếu đăng ký làm thêm giờ (gắn với dự án cụ thể nếu tăng ca chạy deadline dự án), số giờ làm thêm (`total_hours`), loại ngày tăng ca và hệ số nhân lương (`multiplier`: `1.5`, `2.0`, `3.0`). | `employee_id`, `project_id`, `overtime_date`, `total_hours`, `overtime_type`, `multiplier`, `status`. |
 | **27** | **`payroll`** | **Kỳ Bảng lương Tháng**: Quản lý thông tin tổng quát của bảng lương từng tháng/năm (`month`, `year`), số ngày công chuẩn áp dụng, trạng thái bảng lương (`Nháp`, `Chờ duyệt`, `Đã duyệt`, `Đã khóa`) và lịch sử mở khóa bảng lương (`unlock_history`). Khi `status = 'Đã khóa'`, không ai được sửa số liệu lương trừ khi Super Admin mở khóa có nhập lý do. | `payroll_code` (`BL-202611`), `month`, `year`, `standard_work_days`, `status`, `unlock_history` (JSONB). |
@@ -127,12 +127,45 @@ Toàn bộ 30 bảng trong schema `public` của Supabase (được định ngh�
 
 | STT | Tên bảng trong Supabase | Ý nghĩa & Mục đích sử dụng trong hệ thống | Các cột & Liên kết quan trọng |
 | :-: | :--- | :--- | :--- |
-| **29** | **`system_settings`** | **Tham số Cấu hình Động**: Lưu các cài đặt vận hành có thể chỉnh sửa ngay trên giao diện mà không cần sửa code: số ngày công chuẩn tháng (`standard_work_days`), thuế VAT mặc định (`default_vat_rate`), danh sách trạng thái dự án, danh sách loại Job thiết kế, hệ số OT... | `key` (Primary Key), `value` (JSONB), `description`. |
+| **29** | **`system_settings`** | **Tham số Cấu hình Động**: Lưu các cài đặt vận hành có thể chỉnh sửa ngay trên giao diện mà không cần sửa code: số ngày công chuẩn tháng (`standard_work_days`), thuế VAT mặc định (`default_vat_rate`), danh sách trạng thái dự án, danh sách loại Job thiết kế, danh sách mạng Wi-Fi công ty hợp lệ (`office_allowed_ips`) và cờ tự động đồng bộ mạng Wi-Fi theo máy Admin (`auto_sync_office_ip`). | `key` (Primary Key), `value` (JSONB), `description`. |
 | **30** | **`notifications`** & **`audit_logs`** | - **`notifications`**: Lưu các thông báo nhắc việc và cảnh báo tự động trên thanh chuông thông báo.<br>- **`audit_logs`**: **Nhật ký Kiểm toán Hệ thống (Audit Trail)** — tự động ghi lại mọi thao tác quan trọng (Ai làm `actor_name`, Vai trò gì `actor_role`, Ở phân hệ nào `action_module`, Hành động gì `action_type`, Dữ liệu trước khi sửa `old_data` và sau khi sửa `new_data`). | `actor_name`, `action_module`, `action_type`, `target_id`, `old_data` (JSONB), `new_data` (JSONB), `created_at`. |
 
 ---
 
-## 3. Hướng dẫn Chạy Dự án
+## 3. Các Tính năng Bảo mật, Phân quyền & Vận hành đã Cập nhật
+
+### 3.1. Chấm công Web đối chiếu Mạng Wi-Fi Công ty & Tự động Đồng bộ (Auto-Sync)
+- **Phương thức duy nhất – Chấm công Web**: Ghi nhận `Check-in` / `Check-out` trực tiếp trên trình duyệt kết hợp kiểm tra mạng Wi-Fi văn phòng (`office_allowed_ips`) và hỗ trợ phân giải tên miền động DDNS.
+- **Tự động cập nhật mạng Wi-Fi Công ty (`auto_sync_office_ip`)**: Khi bật chế độ Auto-Sync, mỗi khi tài khoản **Admin / Super Admin** mở web tại văn phòng, hệ thống tự động đồng bộ địa chỉ mạng Wi-Fi hiện tại của công ty lên Supabase mà không cần bấm cập nhật thủ công khi nhà mạng đổi IP động.
+- **Bảo mật địa chỉ IP**: Toàn bộ địa chỉ IP của công ty và thiết bị đều được ẩn trên giao diện người dùng, chỉ hiển thị trạng thái xác thực kết nối (`Hợp lệ: Đang kết nối đúng mạng Wi-Fi Công ty` hoặc `Không khớp mạng Wi-Fi Công ty`).
+
+### 3.2. Phân quyền Chấm công Cá nhân & Quyền Admin
+- **Nhân viên thường (`sale`, `designer`, `accountant`, `team_leader`, `dept_manager`, `director`)**:
+  - Chỉ được phép `Check-in`, `Check-out`, gửi giải trình, tạo đơn nghỉ phép và đăng ký tăng ca (OT) **cho chính mình**; không thể chuyển đổi sang tên nhân viên khác.
+  - Được bảo vệ chặt chẽ ở cả tầng giao diện (`AttendancePage.tsx`) và tầng Backend Controller (`verifySelfOrAdmin` trong `backend/utils/helpers.ts` trả về `403 Forbidden` nếu cố gửi yêu cầu chấm công hộ).
+- **Quản trị viên (`super_admin`, `admin`)**:
+  - Có quyền chọn bất kỳ nhân sự nào trong danh sách để hỗ trợ chấm công hoặc tạo đơn hộ khi cần thiết.
+
+### 3.3. Phân quyền Quản trị Nhân sự, Khách hàng, Dự án & Cài đặt Hệ thống
+- **Phân hệ 12 – Cài đặt & Phân quyền (`SettingsPage.tsx`)**:
+  - **Chỉ duy nhất tài khoản Admin (`super_admin`, `admin`)** mới nhìn thấy menu `12. Cài đặt & Phân quyền`, nút cấu hình `Supabase DB` và được phép thao tác cấu hình ma trận phân quyền (`Data Scope` & `Field-level Security`), khóa/mở khóa tài khoản hoặc thay đổi tham số hệ thống (được bảo vệ bởi `isAdminActor` ở tầng Backend).
+- **Quản lý Nhân sự (`HrPage.tsx`)**:
+  - Chỉ tài khoản **Admin** mới có quyền **Thêm nhân viên mới** và **Xóa nhân sự** (kèm cơ chế bảo vệ chống xóa nhầm tài khoản Super Admin gốc `NV-0001`).
+  - Tự động khôi phục vai trò hệ thống `super_admin` trong `SystemController.getBootstrapData` nếu bảng `roles` trên Supabase bị xóa nhầm.
+- **Thao tác Xóa dữ liệu & Ràng buộc Khóa ngoại (`ON DELETE CASCADE`)**:
+  - Hỗ trợ xóa trực tiếp Nhân sự, Khách hàng và Dự án trên ứng dụng hoặc trực tiếp trong **Supabase Table Editor** mà không bị chặn bởi lỗi khóa ngoại.
+
+### 3.4. Tối ưu Trải nghiệm Người dùng (UX) & Chống lỗi Nhập liệu
+- **Khóa chống bấm đúp tạo trùng dữ liệu (Submit Lock + Loading Spinner)**:
+  - Các biểu mẫu **Thêm nhân viên mới**, **Khởi tạo dự án mới** và **Thêm khách hàng mới** đều sử dụng khóa đồng bộ (`useRef` + trạng thái `isSubmitting` + icon xoay `Loader2`), đảm bảo phải tạo xong bản ghi hiện tại mới được tạo tiếp, ngăn chặn hoàn toàn việc click liên tục sinh ra nhiều bản ghi trùng lặp.
+- **Chuẩn hóa toàn bộ ô nhập số (`input[type="number"]`)**:
+  - Tự động loại bỏ số `0` thừa ở đầu khi gõ trực tiếp từ bàn phím (ví dụ gõ `20` không bị thành `020`, gõ lương `12000000` không bị thành `012000000`) trên toàn bộ 32 ô nhập số của hệ thống.
+- **Giao diện sạch gọn**:
+  - Đã loại bỏ toàn bộ các nhãn chú thích mục tài liệu trong ngoặc đơn `(Mục ...)`, `(Phần ...)` trên tất cả 12 phân hệ.
+
+---
+
+## 4. Hướng dẫn Chạy Dự án
 
 1. **Cài đặt thư viện**:
    ```powershell

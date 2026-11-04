@@ -93,6 +93,13 @@ export class HrModel {
     return data || [];
   }
 
+  static async getUserById(id: string) {
+    const db = requireSupabaseDb();
+    const { data, error } = await db.from('users').select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
   static async createUser(payload: Record<string, unknown>) {
     const db = requireSupabaseDb();
     const { data, error } = await db.from('users').insert(payload).select('*').single();

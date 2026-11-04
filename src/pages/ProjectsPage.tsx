@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Plus,
   Search,
@@ -10,6 +10,7 @@ import {
   Eye,
   SlidersHorizontal,
   ArrowUpDown,
+  Loader2,
 } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { Project } from '../types/database';
@@ -69,6 +70,8 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [actionError, setActionError] = useState('');
+  const [isCreatingProj, setIsCreatingProj] = useState(false);
+  const creatingProjLock = useRef(false);
 
   // Form state tạo dự án
   const [newProj, setNewProj] = useState({
@@ -173,40 +176,49 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const taxes = calculateContractTaxes(newProj.input_amount, newProj.vat_rate, newProj.tax_input_mode);
-    const res = await createProject({
-      name: newProj.name,
-      customer_id: newProj.customer_id || null,
-      job_type: newProj.job_type,
-      page_count: newProj.page_count,
-      tax_input_mode: newProj.tax_input_mode,
-      revenue_before_tax: taxes.beforeTax,
-      vat_rate: newProj.vat_rate,
-      vat_amount: taxes.vatAmount,
-      revenue_after_tax: taxes.afterTax,
-      contract_number: newProj.contract_number,
-      contract_sign_date: newProj.contract_sign_date,
-      contract_status: newProj.contract_status,
-      sale_id: newProj.sale_id || null,
-      designer_id: newProj.designer_id || null,
-      team_leader_id: newProj.team_leader_id || null,
-      department_id: newProj.department_id || null,
-      priority: newProj.priority,
-      status: newProj.status,
-      deadline: newProj.deadline || null,
-      notes: newProj.notes,
-    });
-    if (res.ok) {
-      setShowCreateModal(false);
-      setNewProj({
-        ...newProj,
-        name: '',
-        input_amount: 0,
-        contract_number: '',
-        notes: '',
+    if (creatingProjLock.current || isCreatingProj) return;
+    creatingProjLock.current = true;
+    setIsCreatingProj(true);
+    setActionError('');
+    try {
+      const taxes = calculateContractTaxes(newProj.input_amount, newProj.vat_rate, newProj.tax_input_mode);
+      const res = await createProject({
+        name: newProj.name,
+        customer_id: newProj.customer_id || null,
+        job_type: newProj.job_type,
+        page_count: newProj.page_count,
+        tax_input_mode: newProj.tax_input_mode,
+        revenue_before_tax: taxes.beforeTax,
+        vat_rate: newProj.vat_rate,
+        vat_amount: taxes.vatAmount,
+        revenue_after_tax: taxes.afterTax,
+        contract_number: newProj.contract_number,
+        contract_sign_date: newProj.contract_sign_date,
+        contract_status: newProj.contract_status,
+        sale_id: newProj.sale_id || null,
+        designer_id: newProj.designer_id || null,
+        team_leader_id: newProj.team_leader_id || null,
+        department_id: newProj.department_id || null,
+        priority: newProj.priority,
+        status: newProj.status,
+        deadline: newProj.deadline || null,
+        notes: newProj.notes,
       });
-    } else {
-      setActionError(res.error || 'Lỗi tạo dự án');
+      if (res.ok) {
+        setShowCreateModal(false);
+        setNewProj({
+          ...newProj,
+          name: '',
+          input_amount: 0,
+          contract_number: '',
+          notes: '',
+        });
+      } else {
+        setActionError(res.error || 'Lỗi tạo dự án');
+      }
+    } finally {
+      creatingProjLock.current = false;
+      setIsCreatingProj(false);
     }
   };
 
@@ -261,7 +273,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
               </button>
               {showColumnMenu && (
                 <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-20 space-y-2 text-xs">
-                  <div className="font-bold text-slate-700 pb-1 border-b">Tùy chỉnh cột (Mục 2.1)</div>
+                  <div className="font-bold text-slate-700 pb-1 border-b">Tùy chỉnh cột</div>
                   {Object.entries({
                     customer: 'Khách hàng',
                     jobType: 'Loại JOB',
@@ -515,7 +527,8 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                             type="number"
                             min={0}
                             max={100}
-                            value={p.progress_percent}
+                            placeholder="0"
+                            value={p.progress_percent === 0 ? '' : p.progress_percent}
                             onChange={(e) =>
                               updateProject(p.id, { progress_percent: Number(e.target.value) })
                             }
@@ -664,7 +677,8 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                     <input
                       type="number"
                       min={1}
-                      value={newProj.page_count}
+                      placeholder="0"
+                      value={newProj.page_count === 0 ? '' : newProj.page_count}
                       onChange={(e) => setNewProj({ ...newProj, page_count: Number(e.target.value) })}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300"
                     />
@@ -690,6 +704,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                     <label className="block font-semibold text-slate-700 mb-1">Số tiền hợp đồng (VNĐ)</label>
                     <input
                       type="number"
+                      placeholder="0"
                       value={newProj.input_amount || ''}
                       onChange={(e) => setNewProj({ ...newProj, input_amount: Number(e.target.value) })}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold"
@@ -699,7 +714,8 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                     <label className="block font-semibold text-slate-700 mb-1">VAT (%)</label>
                     <input
                       type="number"
-                      value={newProj.vat_rate}
+                      placeholder="0"
+                      value={newProj.vat_rate === 0 ? '' : newProj.vat_rate}
                       onChange={(e) => setNewProj({ ...newProj, vat_rate: Number(e.target.value) })}
                       className="w-full px-3 py-2 rounded-xl border border-slate-300"
                     />
@@ -812,16 +828,24 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
+                  disabled={isCreatingProj}
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 font-semibold"
+                  className="px-4 py-2 rounded-xl border border-slate-300 font-semibold disabled:opacity-50"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer"
+                  disabled={isCreatingProj}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Lưu & Tạo dự án
+                  {isCreatingProj ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Đang tạo dự án...
+                    </>
+                  ) : (
+                    'Lưu & Tạo dự án'
+                  )}
                 </button>
               </div>
             </form>

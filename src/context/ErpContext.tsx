@@ -90,6 +90,9 @@ interface ErpContextValue {
   jobTypes: string[];
   defaultVatRate: number;
   standardWorkDays: number;
+  officeAllowedIps: string[];
+  autoSyncOfficeIp: boolean;
+  currentClientIp: string;
 
   currentUser: UserAccount | null;
   currentEmployee: Employee | null;
@@ -115,6 +118,7 @@ interface ErpContextValue {
 
   createCustomer: (payload: Partial<Customer>) => Promise<{ ok: boolean; error?: string; data?: Customer }>;
   updateCustomer: (id: string, payload: Partial<Customer>) => Promise<{ ok: boolean; error?: string }>;
+  deleteCustomer: (id: string) => Promise<{ ok: boolean; error?: string }>;
   addCustomerCareLog: (customerId: string, channel: string, content: string) => Promise<void>;
 
   createProject: (payload: Partial<Project>) => Promise<{ ok: boolean; error?: string; data?: Project }>;
@@ -199,8 +203,7 @@ interface ErpContextValue {
 
   checkInAttendance: (
     employeeId: string,
-    method: AttendanceRecord['method'],
-    gpsLocation?: string
+    method?: AttendanceRecord['method']
   ) => Promise<{ ok: boolean; error?: string }>;
   checkOutAttendance: (attendanceId: string) => Promise<{ ok: boolean; error?: string }>;
   submitAttendanceExplanation: (attendanceId: string, reason: string) => Promise<{ ok: boolean; error?: string }>;
@@ -232,7 +235,7 @@ interface ErpContextValue {
   saveSystemSetting: (key: string, value: unknown) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
 
-  importExcelRows: (mappedRows: Array<any>) => Promise<{
+  importExcelRows: (mappedRows: Array<Record<string, unknown>>) => Promise<{
     successCount: number;
     skippedCount: number;
     errors: string[];
@@ -302,6 +305,39 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ]);
   const [defaultVatRate, setDefaultVatRate] = useState<number>(8);
   const [standardWorkDays, setStandardWorkDays] = useState<number>(26);
+  const [officeAllowedIps, setOfficeAllowedIps] = useState<string[]>([]);
+  const [autoSyncOfficeIp, setAutoSyncOfficeIp] = useState<boolean>(true);
+  const [currentClientIp, setCurrentClientIp] = useState<string>('');
+
+  // Phát hiện địa chỉ IP mạng hiện tại của người dùng (Public WAN IP hoặc Server-detected IP)
+  const detectCurrentIp = useCallback(async (): Promise<string> => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3500);
+      const r = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
+      clearTimeout(timeout);
+      if (r.ok) {
+        const json = await r.json();
+        if (json?.ip) {
+          const clean = String(json.ip).trim();
+          setCurrentClientIp(clean);
+          return clean;
+        }
+      }
+    } catch {
+      // Fallback sang Backend IP endpoint
+    }
+    try {
+      const fallback = await apiRequest<{ ok: boolean; ip?: string }>('/system/client-ip');
+      if (fallback.ok && fallback.ip) {
+        setCurrentClientIp(fallback.ip);
+        return fallback.ip;
+      }
+    } catch {
+      // ignore
+    }
+    return '';
+  }, []);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() =>
     typeof window !== 'undefined' ? localStorage.getItem(LS_SESSION_USER_ID) : null
@@ -360,20 +396,21 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               setDefaultVatRate(Number(row.value) || 8);
             } else if (row.key === 'standard_work_days') {
               setStandardWorkDays(Number(row.value) || 26);
+            } else if (row.key === 'office_allowed_ips' && Array.isArray(row.value)) {
+              setOfficeAllowedIps(row.value.map((ip: unknown) => String(ip).trim()).filter(Boolean));
+            } else if (row.key === 'auto_sync_office_ip') {
+              setAutoSyncOfficeIp(Boolean(row.value));
             }
           }
         }
 
-        if (loadedUsers.length > 0) {
-          const savedId = localStorage.getItem(LS_SESSION_USER_ID);
-          const found = loadedUsers.find((u) => u.id === savedId && !u.is_locked);
-          if (!found) {
-            const firstActive = loadedUsers.find((u) => !u.is_locked);
-            if (firstActive) {
-              setCurrentUserId(firstActive.id);
-              localStorage.setItem(LS_SESSION_USER_ID, firstActive.id);
-            }
-          }
+        const savedId = localStorage.getItem(LS_SESSION_USER_ID);
+        const found = savedId ? loadedUsers.find((u) => u.id === savedId && !u.is_locked) : null;
+        if (found) {
+          setCurrentUserId(found.id);
+        } else {
+          setCurrentUserId(null);
+          localStorage.removeItem(LS_SESSION_USER_ID);
         }
       }
     } finally {
@@ -382,16 +419,52 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
+    detectCurrentIp();
     refreshAll();
-  }, [refreshAll]);
+  }, [detectCurrentIp, refreshAll]);
 
   const currentUser = users.find((u) => u.id === currentUserId) || null;
   const currentEmployee = employees.find((e) => e.id === currentUser?.employee_id) || null;
-  const currentRole =
-    roles.find((r) => r.id === currentUser?.role_id) ||
-    roles.find((r) => r.code === currentEmployee?.role_code) ||
-    roles.find((r) => r.code === 'super_admin') ||
-    null;
+  const currentRole: Role | null = currentUser
+    ? roles.find((r) => r.id === currentUser.role_id) ||
+      roles.find((r) => r.code === currentEmployee?.role_code) || {
+        id: 'system-super-admin',
+        code: currentEmployee?.role_code || 'super_admin',
+        name:
+          currentEmployee?.role_code === 'sale'
+            ? 'Sale'
+            : currentEmployee?.role_code === 'designer'
+            ? 'Designer'
+            : currentEmployee?.role_code === 'accountant'
+            ? 'Kế toán'
+            : currentEmployee?.role_code === 'team_leader'
+            ? 'Trưởng nhóm'
+            : currentEmployee?.role_code === 'dept_manager'
+            ? 'Trưởng phòng'
+            : currentEmployee?.role_code === 'director'
+            ? 'Giám đốc'
+            : currentEmployee?.role_code === 'admin'
+            ? 'Admin'
+            : 'Super Admin',
+        data_scope:
+          currentEmployee?.role_code === 'sale' || currentEmployee?.role_code === 'designer'
+            ? 'personal'
+            : currentEmployee?.role_code === 'team_leader'
+            ? 'team'
+            : currentEmployee?.role_code === 'dept_manager'
+            ? 'department'
+            : 'system',
+        hidden_fields:
+          currentEmployee?.role_code === 'designer'
+            ? ['revenue_before_tax', 'payments', 'debt', 'profit', 'other_salary']
+            : currentEmployee?.role_code === 'sale'
+            ? ['other_salary']
+            : [],
+        description: 'Vai trò hệ thống',
+        is_system: true,
+        created_at: new Date().toISOString(),
+      }
+    : null;
 
   useEffect(() => {
     setApiActorHeaders({
@@ -400,6 +473,19 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       actorRole: currentRole?.name || 'Super Admin',
     });
   }, [currentUser, currentEmployee, currentRole]);
+
+  // Tự động đồng bộ IP Wi-Fi Công ty khi Quản trị viên (Super Admin / Admin) mở web tại văn phòng
+  useEffect(() => {
+    if (!autoSyncOfficeIp || !currentClientIp || !health.connected || !health.schemaReady) return;
+    const isAdminActor = currentRole?.code === 'super_admin' || currentRole?.code === 'admin';
+    if (isAdminActor && !officeAllowedIps.includes(currentClientIp)) {
+      setOfficeAllowedIps([currentClientIp]);
+      apiRequest('/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ key: 'office_allowed_ips', value: [currentClientIp] }),
+      });
+    }
+  }, [autoSyncOfficeIp, currentClientIp, currentRole, officeAllowedIps, health.connected, health.schemaReady]);
 
   // ======================== AUTH CONTROLLER CALLS ========================
   const login = async (username: string, password: string) => {
@@ -454,11 +540,14 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       moduleCode: string,
       action: 'view' | 'create' | 'edit' | 'delete' | 'approve' | 'export' | 'confirm_tx'
     ): boolean => {
-      const code = currentRole?.code || 'super_admin';
+      const code = currentRole?.code || currentEmployee?.role_code || 'super_admin';
+      // Phân hệ Cài đặt & Phân quyền chỉ duy nhất Admin / Super Admin được xem và thao tác
+      if (moduleCode === 'settings') {
+        return code === 'super_admin' || code === 'admin';
+      }
       if (code === 'super_admin' || code === 'admin') return true;
       if (code === 'director') {
         if (action === 'delete' && moduleCode === 'projects') return false;
-        if (moduleCode === 'settings') return false;
         return true;
       }
       if (code === 'accountant') {
@@ -467,11 +556,11 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return action === 'view';
       }
       if (code === 'dept_manager') {
-        if (moduleCode === 'settings' || moduleCode === 'payroll') return action === 'view';
+        if (moduleCode === 'payroll') return action === 'view';
         return true;
       }
       if (code === 'team_leader') {
-        if (['settings', 'payroll'].includes(moduleCode)) return false;
+        if (moduleCode === 'payroll') return false;
         if (action === 'delete') return false;
         return true;
       }
@@ -489,7 +578,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return true;
     },
-    [currentRole]
+    [currentRole, currentEmployee]
   );
 
   const scopedProjects = React.useMemo(() => {
@@ -625,6 +714,14 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const res = await apiRequest(`/customers/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
+    });
+    if (res.ok) await refreshAll();
+    return res;
+  };
+
+  const deleteCustomer = async (id: string) => {
+    const res = await apiRequest(`/customers/${id}`, {
+      method: 'DELETE',
     });
     if (res.ok) await refreshAll();
     return res;
@@ -894,19 +991,23 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ======================== ATTENDANCE & PAYROLL CONTROLLER CALLS ========================
   const checkInAttendance = async (
     employeeId: string,
-    method: AttendanceRecord['method'],
-    gpsLocation?: string
+    method: AttendanceRecord['method'] = 'Web'
   ) => {
+    const activeIp = currentClientIp || (await detectCurrentIp());
     const res = await apiRequest('/attendance/check-in', {
       method: 'POST',
-      body: JSON.stringify({ employeeId, method, gpsLocation }),
+      body: JSON.stringify({ employeeId, method, clientIp: activeIp }),
     });
     if (res.ok) await refreshAll();
     return res;
   };
 
   const checkOutAttendance = async (attendanceId: string) => {
-    const res = await apiRequest(`/attendance/${attendanceId}/check-out`, { method: 'POST' });
+    const activeIp = currentClientIp || (await detectCurrentIp());
+    const res = await apiRequest(`/attendance/${attendanceId}/check-out`, {
+      method: 'POST',
+      body: JSON.stringify({ clientIp: activeIp }),
+    });
     if (res.ok) await refreshAll();
     return res;
   };
@@ -1033,7 +1134,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
   };
 
-  const importExcelRows = async (mappedRows: Array<any>) => {
+  const importExcelRows = async (mappedRows: Array<Record<string, unknown>>) => {
     const res = await apiRequest('/projects/import-excel', {
       method: 'POST',
       body: JSON.stringify({ mappedRows }),
@@ -1082,6 +1183,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         jobTypes,
         defaultVatRate,
         standardWorkDays,
+        officeAllowedIps,
+        autoSyncOfficeIp,
+        currentClientIp,
         currentUser,
         currentEmployee,
         currentRole,
@@ -1095,6 +1199,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getProjectFinancials,
         createCustomer,
         updateCustomer,
+        deleteCustomer,
         addCustomerCareLog,
         createProject,
         updateProject,

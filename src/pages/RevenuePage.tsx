@@ -107,7 +107,7 @@ export const RevenuePage: React.FC = () => {
       <div className="bg-indigo-950 text-white rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
-            <Info className="w-4 h-4" /> Quy tắc Doanh thu Hợp đồng (Phần 4 & Phần 18)
+            <Info className="w-4 h-4" /> Quy tắc Doanh thu Hợp đồng
           </div>
           <p className="text-xs text-indigo-100 max-w-3xl">
             • <strong>Quy tắc 1 & 2:</strong> Doanh thu là giá trị hợp đồng (Trước thuế & Sau thuế), hoàn toàn độc lập
@@ -151,7 +151,7 @@ export const RevenuePage: React.FC = () => {
               tab === 'staff_revenue' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
             }`}
           >
-            2. Doanh thu ghi nhận theo Sale & Designer (Mục 4.3)
+            2. Doanh thu ghi nhận theo Sale & Designer
           </button>
           <button
             onClick={() => setTab('revisions')}

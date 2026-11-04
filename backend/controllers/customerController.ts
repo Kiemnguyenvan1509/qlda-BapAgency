@@ -70,4 +70,20 @@ export class CustomerController {
       res.status(400).json({ ok: false, error: err instanceof Error ? err.message : 'Lỗi lưu CSKH' });
     }
   }
+
+  static async remove(req: Request, res: Response) {
+    try {
+      const id = String(req.params.id);
+      const oldCust = await CustomerModel.getById(id);
+      if (!oldCust) {
+        res.status(404).json({ ok: false, error: 'Không tìm thấy khách hàng' });
+        return;
+      }
+      await CustomerModel.deleteById(id);
+      await SystemModel.writeAuditLog(req.actor, 'Khách hàng', 'Xóa hồ sơ khách hàng', id, oldCust, null);
+      res.json({ ok: true });
+    } catch (err: unknown) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : 'Lỗi xóa khách hàng' });
+    }
+  }
 }

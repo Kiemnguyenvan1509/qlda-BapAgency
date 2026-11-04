@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Clock, Download } from 'lucide-react';
+import { Clock, Download, Wifi, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
-import { AttendanceRecord, LeaveRequest, OvertimeRequest } from '../types/database';
+import { LeaveRequest, OvertimeRequest } from '../types/database';
 import { exportToExcel, formatDate, formatDateTime, getTodayISO } from '../lib/format';
 
 export const AttendancePage: React.FC = () => {
@@ -13,7 +13,11 @@ export const AttendancePage: React.FC = () => {
     scopedEmployees,
     employees,
     currentEmployee,
+    currentRole,
     standardWorkDays,
+    officeAllowedIps,
+    autoSyncOfficeIp,
+    currentClientIp,
     canAction,
     checkInAttendance,
     checkOutAttendance,
@@ -24,12 +28,13 @@ export const AttendancePage: React.FC = () => {
     updateLeaveStatus,
     createOvertimeRequest,
     updateOvertimeStatus,
+    saveSystemSetting,
   } = useErp();
 
   const [tab, setTab] = useState<'daily' | 'summary' | 'shifts' | 'leaves' | 'overtime'>('daily');
   const [selectedEmpId, setSelectedEmpId] = useState<string>(currentEmployee?.id || employees[0]?.id || '');
-  const [checkInMethod, setCheckInMethod] = useState<AttendanceRecord['method']>('Web');
   const [statusMsg, setStatusMsg] = useState('');
+  const [statusIsError, setStatusIsError] = useState(false);
 
   // Bộ lọc tháng cho Bảng tổng hợp chấm công (Mục 8.6)
   const [sumMonth, setSumMonth] = useState<number>(new Date().getMonth() + 1);
@@ -67,9 +72,14 @@ export const AttendancePage: React.FC = () => {
     reason: '',
   });
 
-  const activeEmpId = selectedEmpId || currentEmployee?.id || employees[0]?.id || '';
+  const roleCode = currentRole?.code || currentEmployee?.role_code || '';
+  const isAdmin = roleCode === 'super_admin' || roleCode === 'admin';
+  const activeEmpId = isAdmin
+    ? selectedEmpId || currentEmployee?.id || employees[0]?.id || ''
+    : currentEmployee?.id || '';
   const today = getTodayISO();
   const todayRec = attendance.find((a) => a.employee_id === activeEmpId && a.work_date === today);
+  const isIpMatched = officeAllowedIps.length === 0 || (Boolean(currentClientIp) && officeAllowedIps.includes(currentClientIp));
 
   // Tổng hợp bảng công tháng (Mục 8.6)
   const monthlySummaryRows = useMemo(() => {
@@ -116,72 +126,153 @@ export const AttendancePage: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Check-in / Check-out Quick Bar */}
-      <div className="bg-slate-900 text-white rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="text-xs font-bold uppercase text-indigo-300 flex items-center gap-1.5">
-            <Clock className="w-4 h-4" /> Chấm Công Trực Tuyến Hôm Nay ({formatDate(today)})
+      <div className="bg-slate-900 text-white rounded-2xl p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-xs font-bold uppercase text-indigo-300 flex items-center gap-1.5">
+              <Clock className="w-4 h-4" /> Chấm Công Web Trực Tuyến Hôm Nay ({formatDate(today)})
+            </div>
+            <p className="text-xs text-slate-300">
+              Hệ thống tự động đối chiếu Địa chỉ IP mạng Wi-Fi đang kết nối với IP Wi-Fi công ty trước khi ghi nhận Check-in / Check-out.
+            </p>
           </div>
-          <p className="text-xs text-slate-300">
-            Quy tắc 8: Dữ liệu chấm công gốc không được nhân viên tự sửa. Mọi điều chỉnh phải gửi Giải trình để Quản lý
-            duyệt và lưu lịch sử.
-          </p>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {isAdmin ? (
+              <select
+                value={activeEmpId}
+                onChange={(e) => setSelectedEmpId(e.target.value)}
+                className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold"
+              >
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    [{e.employee_code}] {e.full_name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span
+                title="Bạn chỉ có thể chấm công cho chính mình"
+                className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold"
+              >
+                [{currentEmployee?.employee_code || 'NV'}] {currentEmployee?.full_name || 'Chưa gắn hồ sơ NV'}
+              </span>
+            )}
+
+            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-indigo-300 font-semibold">
+              <Wifi className="w-3.5 h-3.5" /> Chấm công Web
+            </span>
+
+            {!todayRec ? (
+              <button
+                onClick={async () => {
+                  if (!activeEmpId) return;
+                  const res = await checkInAttendance(activeEmpId, 'Web');
+                  setStatusIsError(!res.ok);
+                  setStatusMsg(res.ok ? 'Đã Check-in vào ca thành công!' : res.error || '');
+                }}
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold cursor-pointer"
+              >
+                Check-in Vào Ca
+              </button>
+            ) : !todayRec.check_out ? (
+              <button
+                onClick={async () => {
+                  const res = await checkOutAttendance(todayRec.id);
+                  setStatusIsError(!res.ok);
+                  setStatusMsg(res.ok ? 'Đã Check-out kết thúc ca!' : res.error || '');
+                }}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer"
+              >
+                Check-out Ra Ca
+              </button>
+            ) : (
+              <span className="px-3 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 font-semibold">
+                Đã hoàn tất Check-in & Check-out hôm nay
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <select
-            value={activeEmpId}
-            onChange={(e) => setSelectedEmpId(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold"
-          >
-            {employees.map((e) => (
-              <option key={e.id} value={e.id}>
-                [{e.employee_code}] {e.full_name}
-              </option>
-            ))}
-          </select>
+        {/* Thanh trạng thái đối chiếu mạng Wi-Fi Công ty (đã ẩn địa chỉ IP) */}
+        <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            {officeAllowedIps.length === 0 ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 font-semibold">
+                <ShieldAlert className="w-3.5 h-3.5" /> Chưa khóa mạng Wi-Fi Công ty (Đang cho phép mọi mạng chấm công)
+              </span>
+            ) : isIpMatched ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5" /> Hợp lệ: Đang kết nối đúng mạng Wi-Fi Công ty
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 font-semibold">
+                <ShieldAlert className="w-3.5 h-3.5" /> Không khớp mạng Wi-Fi Công ty – Sẽ bị chặn chấm công
+              </span>
+            )}
+          </div>
 
-          <select
-            value={checkInMethod}
-            onChange={(e) => setCheckInMethod(e.target.value as AttendanceRecord['method'])}
-            className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white"
-          >
-            <option value="Web">Chấm công Web</option>
-            <option value="Điện thoại">Điện thoại</option>
-            <option value="QR Code">QR Code văn phòng</option>
-            <option value="GPS">Định vị GPS</option>
-          </select>
-
-          {!todayRec ? (
-            <button
-              onClick={async () => {
-                if (!activeEmpId) return;
-                const res = await checkInAttendance(activeEmpId, checkInMethod, 'Văn phòng (IP Hợp lệ)');
-                setStatusMsg(res.ok ? 'Đã Check-in thành công!' : res.error || '');
-              }}
-              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold cursor-pointer"
-            >
-              Check-in Vào Ca
-            </button>
-          ) : !todayRec.check_out ? (
-            <button
-              onClick={async () => {
-                const res = await checkOutAttendance(todayRec.id);
-                setStatusMsg(res.ok ? 'Đã Check-out kết thúc ca!' : res.error || '');
-              }}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer"
-            >
-              Check-out Ra Ca
-            </button>
-          ) : (
-            <span className="px-3 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 font-semibold">
-              Đã hoàn tất Check-in & Check-out hôm nay
-            </span>
+          {canAction('settings', 'edit') && currentClientIp && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={async () => {
+                  const nextVal = !autoSyncOfficeIp;
+                  await saveSystemSetting('auto_sync_office_ip', nextVal);
+                  setStatusIsError(false);
+                  setStatusMsg(
+                    nextVal
+                      ? 'Đã BẬT Tự động cập nhật Wi-Fi Công ty mỗi khi tài khoản Admin mở web!'
+                      : 'Đã TẮT Tự động cập nhật Wi-Fi Công ty.'
+                  );
+                }}
+                className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer ${
+                  autoSyncOfficeIp
+                    ? 'bg-emerald-600/30 border border-emerald-500/40 text-emerald-300'
+                    : 'bg-slate-800 text-slate-400'
+                }`}
+              >
+                Auto-Sync mạng Wi-Fi theo máy Admin: {autoSyncOfficeIp ? 'ĐANG BẬT' : 'ĐANG TẮT'}
+              </button>
+              {!officeAllowedIps.includes(currentClientIp) && (
+                <button
+                  onClick={async () => {
+                    const updated = Array.from(new Set([...officeAllowedIps, currentClientIp]));
+                    await saveSystemSetting('office_allowed_ips', updated);
+                    setStatusIsError(false);
+                    setStatusMsg('Đã khóa chấm công theo mạng Wi-Fi công ty hiện tại.');
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer"
+                >
+                  + Đặt mạng hiện tại làm Wi-Fi Công ty
+                </button>
+              )}
+              {officeAllowedIps.length > 0 && (
+                <button
+                  onClick={async () => {
+                    if (!window.confirm('Bạn muốn gỡ giới hạn mạng Wi-Fi công ty (cho phép chấm công từ mọi mạng)?')) return;
+                    await saveSystemSetting('auto_sync_office_ip', false);
+                    await saveSystemSetting('office_allowed_ips', []);
+                    setStatusIsError(false);
+                    setStatusMsg('Đã gỡ khóa mạng Wi-Fi công ty.');
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer"
+                >
+                  Gỡ khóa Wi-Fi
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
 
       {statusMsg && (
-        <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 font-semibold">
+        <div
+          className={`p-3 rounded-xl border text-xs font-semibold ${
+            statusIsError
+              ? 'bg-rose-50 border-rose-200 text-rose-800'
+              : 'bg-indigo-50 border-indigo-200 text-indigo-900'
+          }`}
+        >
           {statusMsg}
         </div>
       )}
@@ -203,7 +294,7 @@ export const AttendancePage: React.FC = () => {
               tab === 'summary' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
             }`}
           >
-            2. Bảng tổng hợp chấm công tháng (Mục 8.6)
+            2. Bảng tổng hợp chấm công tháng
           </button>
           <button
             onClick={() => setTab('leaves')}
@@ -242,7 +333,7 @@ export const AttendancePage: React.FC = () => {
                 <th className="px-4 py-3">Nhân viên</th>
                 <th className="px-4 py-3">Giờ Check-in</th>
                 <th className="px-4 py-3">Giờ Check-out</th>
-                <th className="px-4 py-3">Phương thức / Vị trí</th>
+                <th className="px-4 py-3">Phương thức chấm công</th>
                 <th className="px-4 py-3 text-center">Đi muộn / Về sớm</th>
                 <th className="px-4 py-3 text-center">Công ghi nhận</th>
                 <th className="px-4 py-3">Giải trình & Lịch sử điều chỉnh</th>
@@ -261,7 +352,8 @@ export const AttendancePage: React.FC = () => {
                     <td className="px-4 py-3 text-emerald-700 font-semibold">{formatDateTime(rec.check_in)}</td>
                     <td className="px-4 py-3 text-indigo-700 font-semibold">{formatDateTime(rec.check_out)}</td>
                     <td className="px-4 py-3">
-                      <span className="font-semibold">{rec.method}</span> • {rec.gps_location}
+                      <span className="font-semibold text-indigo-700">Chấm công Web</span> •{' '}
+                      <span className="text-slate-600">Wi-Fi Công ty</span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       {rec.late_minutes > 0 ? (
@@ -285,15 +377,17 @@ export const AttendancePage: React.FC = () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-right space-x-1">
-                      <button
-                        onClick={() => {
-                          const reason = window.prompt('Nhập nội dung giải trình đi muộn / quên chấm công:');
-                          if (reason) submitAttendanceExplanation(rec.id, reason);
-                        }}
-                        className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
-                      >
-                        Gửi giải trình
-                      </button>
+                      {(isAdmin || rec.employee_id === currentEmployee?.id) && (
+                        <button
+                          onClick={() => {
+                            const reason = window.prompt('Nhập nội dung giải trình đi muộn / quên chấm công:');
+                            if (reason) submitAttendanceExplanation(rec.id, reason);
+                          }}
+                          className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
+                        >
+                          Gửi giải trình
+                        </button>
+                      )}
                       {canAction('attendance', 'approve') && (
                         <button
                           onClick={() => {
@@ -335,14 +429,16 @@ export const AttendancePage: React.FC = () => {
                 type="number"
                 min={1}
                 max={12}
-                value={sumMonth}
+                placeholder="1"
+                value={sumMonth === 0 ? '' : sumMonth}
                 onChange={(e) => setSumMonth(Number(e.target.value))}
                 className="w-16 px-2.5 py-1.5 rounded-lg border border-slate-300"
               />
               <span>/</span>
               <input
                 type="number"
-                value={sumYear}
+                placeholder="2026"
+                value={sumYear === 0 ? '' : sumYear}
                 onChange={(e) => setSumYear(Number(e.target.value))}
                 className="w-24 px-2.5 py-1.5 rounded-lg border border-slate-300"
               />
@@ -423,18 +519,24 @@ export const AttendancePage: React.FC = () => {
       {tab === 'leaves' && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl p-4 border border-slate-200 grid grid-cols-1 sm:grid-cols-6 gap-3 text-xs">
-            <select
-              value={leaveForm.employee_id}
-              onChange={(e) => setLeaveForm({ ...leaveForm, employee_id: e.target.value })}
-              className="px-3 py-2 rounded-lg border border-slate-300 bg-white"
-            >
-              <option value="">-- Nhân sự xin nghỉ --</option>
-              {employees.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.full_name}
-                </option>
-              ))}
-            </select>
+            {isAdmin ? (
+              <select
+                value={leaveForm.employee_id}
+                onChange={(e) => setLeaveForm({ ...leaveForm, employee_id: e.target.value })}
+                className="px-3 py-2 rounded-lg border border-slate-300 bg-white"
+              >
+                <option value="">-- Nhân sự xin nghỉ --</option>
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.full_name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 font-semibold text-slate-700 flex items-center">
+                [{currentEmployee?.employee_code}] {currentEmployee?.full_name}
+              </div>
+            )}
             <select
               value={leaveForm.leave_type}
               onChange={(e) =>
@@ -459,7 +561,7 @@ export const AttendancePage: React.FC = () => {
               type="number"
               step={0.5}
               min={0.5}
-              value={leaveForm.total_days}
+              value={leaveForm.total_days === 0 ? '' : leaveForm.total_days}
               onChange={(e) => setLeaveForm({ ...leaveForm, total_days: Number(e.target.value) })}
               placeholder="Số ngày"
               className="px-3 py-2 rounded-lg border border-slate-300"
@@ -543,18 +645,24 @@ export const AttendancePage: React.FC = () => {
       {tab === 'overtime' && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl p-4 border border-slate-200 grid grid-cols-1 sm:grid-cols-6 gap-3 text-xs">
-            <select
-              value={otForm.employee_id}
-              onChange={(e) => setOtForm({ ...otForm, employee_id: e.target.value })}
-              className="px-3 py-2 rounded-lg border border-slate-300 bg-white"
-            >
-              <option value="">-- Nhân sự tăng ca --</option>
-              {employees.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.full_name}
-                </option>
-              ))}
-            </select>
+            {isAdmin ? (
+              <select
+                value={otForm.employee_id}
+                onChange={(e) => setOtForm({ ...otForm, employee_id: e.target.value })}
+                className="px-3 py-2 rounded-lg border border-slate-300 bg-white"
+              >
+                <option value="">-- Nhân sự tăng ca --</option>
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.full_name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 font-semibold text-slate-700 flex items-center">
+                [{currentEmployee?.employee_code}] {currentEmployee?.full_name}
+              </div>
+            )}
             <select
               value={otForm.overtime_type}
               onChange={(e) =>
@@ -575,7 +683,7 @@ export const AttendancePage: React.FC = () => {
             <input
               type="number"
               step={0.5}
-              value={otForm.total_hours}
+              value={otForm.total_hours === 0 ? '' : otForm.total_hours}
               onChange={(e) => setOtForm({ ...otForm, total_hours: Number(e.target.value) })}
               placeholder="Số giờ OT"
               className="px-3 py-2 rounded-lg border border-slate-300"
@@ -687,7 +795,7 @@ export const AttendancePage: React.FC = () => {
             />
             <input
               type="number"
-              value={shiftForm.grace_late_minutes}
+              value={shiftForm.grace_late_minutes === 0 ? '' : shiftForm.grace_late_minutes}
               onChange={(e) => setShiftForm({ ...shiftForm, grace_late_minutes: Number(e.target.value) })}
               placeholder="Phút đi muộn cho phép"
               className="px-3 py-2 rounded-lg border border-slate-300"

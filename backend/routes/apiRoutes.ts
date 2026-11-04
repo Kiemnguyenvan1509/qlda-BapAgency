@@ -11,6 +11,7 @@ const router = Router();
 
 // 1. System, Health & Bootstrap Routes
 router.get('/health', SystemController.checkHealth);
+router.get('/system/client-ip', SystemController.getClientIp);
 router.post('/config/supabase', SystemController.saveSupabaseConfig);
 router.delete('/config/supabase', SystemController.clearSupabaseConfig);
 router.get('/bootstrap', SystemController.getBootstrapData);
@@ -26,6 +27,7 @@ router.patch('/auth/users/:id/lock', AuthController.toggleUserLock);
 // 3. Customer Routes
 router.post('/customers', CustomerController.create);
 router.put('/customers/:id', CustomerController.update);
+router.delete('/customers/:id', CustomerController.remove);
 router.post('/customers/:id/care-logs', CustomerController.addCareLog);
 
 // 4. Project Routes

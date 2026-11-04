@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Search, MessageSquarePlus, X } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Plus, Search, MessageSquarePlus, X, Trash2, Loader2 } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { Customer } from '../types/database';
 import { formatCurrency, formatDateTime } from '../lib/format';
@@ -13,6 +13,7 @@ export const CustomersPage: React.FC = () => {
     getProjectFinancials,
     createCustomer,
     updateCustomer,
+    deleteCustomer,
     addCustomerCareLog,
   } = useErp();
 
@@ -21,6 +22,8 @@ export const CustomersPage: React.FC = () => {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [formError, setFormError] = useState('');
+  const [isSubmittingCust, setIsSubmittingCust] = useState(false);
+  const submitCustLock = useRef(false);
 
   const [careChannel, setCareChannel] = useState('Điện thoại');
   const [careContent, setCareContent] = useState('');
@@ -91,15 +94,23 @@ export const CustomersPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitCustLock.current || isSubmittingCust) return;
+    submitCustLock.current = true;
+    setIsSubmittingCust(true);
     setFormError('');
-    if (editingCustomer) {
-      const res = await updateCustomer(editingCustomer.id, form);
-      if (!res.ok) setFormError(res.error || 'Lỗi cập nhật');
-      else setShowModal(false);
-    } else {
-      const res = await createCustomer(form);
-      if (!res.ok) setFormError(res.error || 'Lỗi tạo khách hàng');
-      else setShowModal(false);
+    try {
+      if (editingCustomer) {
+        const res = await updateCustomer(editingCustomer.id, form);
+        if (!res.ok) setFormError(res.error || 'Lỗi cập nhật');
+        else setShowModal(false);
+      } else {
+        const res = await createCustomer(form);
+        if (!res.ok) setFormError(res.error || 'Lỗi tạo khách hàng');
+        else setShowModal(false);
+      }
+    } finally {
+      submitCustLock.current = false;
+      setIsSubmittingCust(false);
     }
   };
 
@@ -196,6 +207,24 @@ export const CustomersPage: React.FC = () => {
                         >
                           Sửa
                         </button>
+                        <button
+                          onClick={async () => {
+                            if (
+                              !window.confirm(
+                                `Bạn có chắc chắn muốn xóa khách hàng [${c.customer_code}] ${c.name} không?`
+                              )
+                            ) {
+                              return;
+                            }
+                            const res = await deleteCustomer(c.id);
+                            if (!res.ok) {
+                              alert(res.error || 'Không thể xóa khách hàng');
+                            }
+                          }}
+                          className="inline-flex items-center gap-0.5 text-rose-600 font-semibold hover:underline cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Xóa
+                        </button>
                       </td>
                     </tr>
                   );
@@ -246,7 +275,7 @@ export const CustomersPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Mã số thuế (Kiểm tra chống trùng Mục 3.2)
+                    Mã số thuế
                   </label>
                   <input
                     type="text"
@@ -319,16 +348,24 @@ export const CustomersPage: React.FC = () => {
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
+                  disabled={isSubmittingCust}
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 font-semibold"
+                  className="px-4 py-2 rounded-xl border border-slate-300 font-semibold disabled:opacity-50"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer"
+                  disabled={isSubmittingCust}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Lưu hồ sơ khách hàng
+                  {isSubmittingCust ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Đang lưu...
+                    </>
+                  ) : (
+                    'Lưu hồ sơ khách hàng'
+                  )}
                 </button>
               </div>
             </form>
@@ -394,7 +431,7 @@ export const CustomersPage: React.FC = () => {
 
               {/* Lịch sử chăm sóc khách hàng */}
               <div className="space-y-3">
-                <h4 className="font-bold uppercase text-slate-500">Lịch sử chăm sóc khách hàng (Mục 3.2)</h4>
+                <h4 className="font-bold uppercase text-slate-500">Lịch sử chăm sóc khách hàng</h4>
                 <div className="flex gap-2">
                   <select
                     value={careChannel}

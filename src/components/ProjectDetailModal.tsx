@@ -293,7 +293,7 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                 {hideFinance ? (
                   <div className="p-4 rounded-xl bg-slate-800 text-xs text-slate-300 flex items-center gap-2">
                     <Lock className="w-4 h-4 text-amber-400 shrink-0" />
-                    Tài khoản của bạn ({/* Mục 11.4 */}phân quyền trường dữ liệu) không hiển thị chỉ tiêu tài chính.
+                    Tài khoản của bạn không hiển thị chỉ tiêu tài chính.
                   </div>
                 ) : (
                   <div className="space-y-2.5 text-xs">
@@ -346,13 +346,13 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
             <div className="space-y-6">
               {hideFinance ? (
                 <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-                  Vai trò của bạn không được cấp quyền xem/chỉnh sửa dữ liệu Hợp đồng & Doanh thu (Mục 11.4).
+                  Vai trò của bạn không được cấp quyền xem/chỉnh sửa dữ liệu Hợp đồng & Doanh thu.
                 </div>
               ) : (
                 <>
                   <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
                     <h4 className="text-sm font-bold text-slate-800">
-                      Cập nhật / Điều chỉnh Hợp đồng & Doanh thu (Mục 4.1)
+                      Cập nhật / Điều chỉnh Hợp đồng & Doanh thu
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
@@ -374,7 +374,8 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                         </label>
                         <input
                           type="number"
-                          value={inputContractVal}
+                          placeholder="0"
+                          value={inputContractVal === 0 ? '' : inputContractVal}
                           onChange={(e) => setInputContractVal(Number(e.target.value))}
                           className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white font-semibold"
                         />
@@ -383,7 +384,8 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                         <label className="block text-xs font-semibold text-slate-600 mb-1">Thuế suất VAT (%)</label>
                         <input
                           type="number"
-                          value={vatRate}
+                          placeholder="0"
+                          value={vatRate === 0 ? '' : vatRate}
                           onChange={(e) => setVatRate(Number(e.target.value))}
                           className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white"
                         />
@@ -728,7 +730,7 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                   />
                   <input
                     type="number"
-                    value={expVat}
+                    value={expVat === 0 ? '' : expVat}
                     onChange={(e) => setExpVat(Number(e.target.value))}
                     placeholder="% VAT"
                     className="px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white"
@@ -771,7 +773,7 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                     checked={expDeductible}
                     onChange={(e) => setExpDeductible(e.target.checked)}
                   />
-                  Có hóa đơn VAT đầu vào được khấu trừ (Mục 6.2: chỉ tính giá trước thuế vào chi phí dự án)
+                  Có hóa đơn VAT đầu vào được khấu trừ (chỉ tính giá trước thuế vào chi phí dự án)
                 </label>
               </div>
 
@@ -870,7 +872,8 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                       type="number"
                       min={0}
                       max={100}
-                      value={stepProgress}
+                      placeholder="0"
+                      value={stepProgress === 0 ? '' : stepProgress}
                       onChange={(e) => setStepProgress(Number(e.target.value))}
                       className="w-20 px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white"
                     />
@@ -879,7 +882,8 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                       type="number"
                       min={0}
                       step={0.5}
-                      value={stepHours}
+                      placeholder="0"
+                      value={stepHours === 0 ? '' : stepHours}
                       onChange={(e) => setStepHours(Number(e.target.value))}
                       className="w-20 px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white"
                     />

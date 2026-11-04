@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { HrModel } from '../models/HrModel';
 import { AttendancePayrollModel } from '../models/AttendancePayrollModel';
 import { SystemModel } from '../models/SystemModel';
-import { generateSeqCode, getTodayISO } from '../utils/helpers';
+import { generateSeqCode, getTodayISO, isAdminActor } from '../utils/helpers';
 
 export class HrController {
   static async createDepartment(req: Request, res: Response) {
@@ -39,6 +39,11 @@ export class HrController {
 
   static async createEmployee(req: Request, res: Response) {
     try {
+      if (!(await isAdminActor(req))) {
+        res.status(403).json({ ok: false, error: 'Chỉ tài khoản Admin mới có quyền thêm nhân sự mới.' });
+        return;
+      }
+
       const { employee: payload, account: accountPayload } = req.body;
       const [employees, shifts] = await Promise.all([
         HrModel.getEmployees(),
@@ -144,6 +149,11 @@ export class HrController {
 
   static async deleteEmployee(req: Request, res: Response) {
     try {
+      if (!(await isAdminActor(req))) {
+        res.status(403).json({ ok: false, error: 'Chỉ tài khoản Admin mới có quyền xóa nhân sự.' });
+        return;
+      }
+
       const id = String(req.params.id);
       const emp = await HrModel.getEmployeeById(id);
       if (!emp) {
@@ -151,13 +161,11 @@ export class HrController {
         return;
       }
 
-      // Bảo vệ tài khoản Super Admin gốc không bị xóa nhầm
-      const allEmps = await HrModel.getEmployees();
-      const superAdmins = allEmps.filter((e) => e.role_code === 'super_admin');
-      if (emp.role_code === 'super_admin' && superAdmins.length <= 1) {
+      // Bảo vệ tài khoản Super Admin gốc (NV-0001) không bị xóa nhầm
+      if (emp.employee_code === 'NV-0001') {
         res.status(400).json({
           ok: false,
-          error: 'Không thể xóa tài khoản Super Admin duy nhất của hệ thống.',
+          error: 'Không thể xóa tài khoản Super Admin gốc (NV-0001) của hệ thống.',
         });
         return;
       }

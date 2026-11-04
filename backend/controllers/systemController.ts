@@ -11,8 +11,13 @@ import { CustomerModel } from '../models/CustomerModel';
 import { ProjectModel } from '../models/ProjectModel';
 import { FinanceModel } from '../models/FinanceModel';
 import { AttendancePayrollModel } from '../models/AttendancePayrollModel';
+import { extractClientIp, isAdminActor } from '../utils/helpers';
 
 export class SystemController {
+  static async getClientIp(req: Request, res: Response) {
+    const ip = extractClientIp(req);
+    res.json({ ok: true, ip });
+  }
   static async checkHealth(_req: Request, res: Response) {
     const cfg = getBackendSupabaseConfig();
     const db = getSupabaseDb();
@@ -153,10 +158,36 @@ export class SystemController {
         SystemModel.getAuditLogs(),
       ]);
 
+      // Tự động khôi phục vai trò gốc 'super_admin' nếu lỡ tay xóa trên Supabase Table Editor
+      let finalRoles = roles;
+      if (!finalRoles.some((r: { code: string }) => r.code === 'super_admin')) {
+        const db = getSupabaseDb();
+        if (db) {
+          const { data: insertedRole } = await db
+            .from('roles')
+            .upsert(
+              {
+                code: 'super_admin',
+                name: 'Super Admin',
+                data_scope: 'system',
+                hidden_fields: [],
+                description: 'Toàn quyền quản trị hệ thống và phân quyền',
+                is_system: true,
+              },
+              { onConflict: 'code' }
+            )
+            .select('*')
+            .single();
+          if (insertedRole) {
+            finalRoles = [insertedRole, ...finalRoles];
+          }
+        }
+      }
+
       res.json({
         ok: true,
         data: {
-          roles,
+          roles: finalRoles,
           rolePermissions,
           departments,
           teams,
@@ -195,6 +226,14 @@ export class SystemController {
 
   static async updateRoleConfig(req: Request, res: Response) {
     try {
+      if (!(await isAdminActor(req))) {
+        res.status(403).json({
+          ok: false,
+          error: 'Chỉ tài khoản Admin mới được phép chỉnh sửa cài đặt phân quyền.',
+        });
+        return;
+      }
+
       const { id } = req.params;
       const { dataScope, hiddenFields } = req.body;
       const updated = await SystemModel.updateRoleConfig(String(id), dataScope, hiddenFields);
@@ -214,6 +253,14 @@ export class SystemController {
 
   static async saveSetting(req: Request, res: Response) {
     try {
+      if (!(await isAdminActor(req))) {
+        res.status(403).json({
+          ok: false,
+          error: 'Chỉ tài khoản Admin mới được phép thay đổi cấu hình hệ thống.',
+        });
+        return;
+      }
+
       const { key, value } = req.body;
       await SystemModel.upsertSetting(key, value);
       await SystemModel.writeAuditLog(

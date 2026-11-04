@@ -87,7 +87,7 @@ export const PaymentsPage: React.FC = () => {
           <strong className="text-xl font-extrabold text-rose-600">{formatCurrency(totals.totalDebt)}</strong>
         </div>
         <div className="bg-white rounded-2xl p-4 border border-slate-200">
-          <span className="text-xs text-slate-500 block">Khoản khách thanh toán thừa (Mục 4.2)</span>
+          <span className="text-xs text-slate-500 block">Khoản khách thanh toán thừa</span>
           <strong className="text-xl font-extrabold text-indigo-700">{formatCurrency(totals.totalOverpaid)}</strong>
         </div>
       </div>
@@ -235,7 +235,7 @@ export const PaymentsPage: React.FC = () => {
                             <button
                               onClick={() => {
                                 const reason = window.prompt(
-                                  'Nhập lý do hủy hoặc lập giao dịch điều chỉnh/hoàn tiền (Mục 4.4 - Không xóa vĩnh viễn giao dịch):',
+                                  'Nhập lý do hủy hoặc lập giao dịch điều chỉnh/hoàn tiền:',
                                   'Điều chỉnh số liệu đối soát'
                                 );
                                 if (reason) cancelOrRefundPayment(pay.id, reason);

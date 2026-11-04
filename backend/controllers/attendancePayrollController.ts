@@ -1,10 +1,36 @@
 import { Request, Response } from 'express';
+import dns from 'dns/promises';
 import { AttendancePayrollModel } from '../models/AttendancePayrollModel';
 import { HrModel } from '../models/HrModel';
 import { SystemModel } from '../models/SystemModel';
-import { getTodayISO } from '../utils/helpers';
+import { extractClientIp, getTodayISO, verifySelfOrAdmin } from '../utils/helpers';
 
 export class AttendancePayrollController {
+  private static async getAllowedOfficeIps(): Promise<string[]> {
+    const settings = await SystemModel.getSettings();
+    const row = settings.find((s) => s.key === 'office_allowed_ips');
+    if (!row || !Array.isArray(row.value)) return [];
+
+    const rawEntries = row.value.map((ip: unknown) => String(ip).trim()).filter(Boolean);
+    const resolvedIps: string[] = [];
+
+    for (const entry of rawEntries) {
+      resolvedIps.push(entry);
+      // Nếu cấu hình tên miền động DDNS (VD: bapagency.ddns.net), tự động phân giải sang IP mới nhất của cục Wi-Fi
+      if (/[a-zA-Z]/.test(entry)) {
+        try {
+          const lookedUp = await dns.lookup(entry);
+          if (lookedUp?.address) {
+            resolvedIps.push(lookedUp.address);
+          }
+        } catch {
+          // ignore lookup failure
+        }
+      }
+    }
+    return Array.from(new Set(resolvedIps));
+  }
+
   static async createShift(req: Request, res: Response) {
     try {
       const payload = req.body;
@@ -27,7 +53,26 @@ export class AttendancePayrollController {
 
   static async checkIn(req: Request, res: Response) {
     try {
-      const { employeeId, method, gpsLocation } = req.body;
+      const { employeeId, clientIp: rawClientIp } = req.body;
+
+      const permError = await verifySelfOrAdmin(req, employeeId);
+      if (permError) {
+        res.status(403).json({ ok: false, error: permError });
+        return;
+      }
+
+      const clientIp = extractClientIp(req, rawClientIp);
+      const allowedIps = await AttendancePayrollController.getAllowedOfficeIps();
+
+      if (allowedIps.length > 0 && !allowedIps.includes(clientIp)) {
+        res.status(400).json({
+          ok: false,
+          error:
+            'Từ chối chấm công: Thiết bị của bạn hiện không kết nối đúng mạng Wi-Fi công ty. Vui lòng kết nối Wi-Fi công ty để Check-in!',
+        });
+        return;
+      }
+
       const [emp, shifts] = await Promise.all([
         HrModel.getEmployeeById(employeeId),
         AttendancePayrollModel.getShifts(),
@@ -52,16 +97,17 @@ export class AttendancePayrollController {
         work_date: today,
         shift_id: shift?.id || null,
         check_in: now.toISOString(),
-        method: method || 'Web',
-        gps_location: gpsLocation || 'Văn phòng công ty',
+        method: 'Web',
+        ip_address: clientIp,
+        gps_location: 'Wi-Fi Công ty',
         device_info: req.actor.ipOrDevice,
         late_minutes: lateMinutes,
         work_day_credit: shift?.work_day_ratio || 1.0,
       });
 
-      await SystemModel.writeAuditLog(req.actor, 'Chấm công', 'Check-in chấm công', employeeId, null, {
+      await SystemModel.writeAuditLog(req.actor, 'Chấm công', 'Check-in chấm công Web', employeeId, null, {
         today,
-        method,
+        method: 'Web',
         lateMinutes,
       });
 
@@ -84,6 +130,24 @@ export class AttendancePayrollController {
         return;
       }
 
+      const permError = await verifySelfOrAdmin(req, rec.employee_id);
+      if (permError) {
+        res.status(403).json({ ok: false, error: permError });
+        return;
+      }
+
+      const clientIp = extractClientIp(req, req.body?.clientIp);
+      const allowedIps = await AttendancePayrollController.getAllowedOfficeIps();
+
+      if (allowedIps.length > 0 && !allowedIps.includes(clientIp)) {
+        res.status(400).json({
+          ok: false,
+          error:
+            'Từ chối Check-out: Thiết bị của bạn hiện không kết nối đúng mạng Wi-Fi công ty. Vui lòng kết nối Wi-Fi công ty để Check-out!',
+        });
+        return;
+      }
+
       const shifts = await AttendancePayrollModel.getShifts();
       const shift = shifts.find((s) => s.id === rec.shift_id) || shifts[0];
       const now = new Date();
@@ -99,10 +163,12 @@ export class AttendancePayrollController {
       const updated = await AttendancePayrollModel.updateAttendance(id, {
         check_out: now.toISOString(),
         early_leave_minutes: earlyLeaveMinutes,
+        ip_address: rec.ip_address || clientIp,
       });
 
-      await SystemModel.writeAuditLog(req.actor, 'Chấm công', 'Check-out chấm công', id, null, {
+      await SystemModel.writeAuditLog(req.actor, 'Chấm công', 'Check-out chấm công Web', id, null, {
         earlyLeaveMinutes,
+        ip_address: clientIp,
       });
 
       res.json({ ok: true, data: updated });

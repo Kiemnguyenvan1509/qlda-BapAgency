@@ -119,7 +119,7 @@ export const ExcelImportModal: React.FC<Props> = ({ isOpen, onClose }) => {
           <div className="flex items-center gap-3">
             <FileSpreadsheet className="w-6 h-6 text-emerald-400" />
             <div>
-              <h3 className="font-bold text-base">Chuyển Đổi Dữ Liệu Từ Google Sheets / Excel (Phần 15)</h3>
+              <h3 className="font-bold text-base">Chuyển Đổi Dữ Liệu Từ Google Sheets / Excel</h3>
               <p className="text-xs text-slate-400">
                 Ánh xạ cột, kiểm tra trùng mã dự án, xem trước và nhập hàng loạt vào Supabase
               </p>

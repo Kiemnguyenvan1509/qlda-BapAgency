@@ -91,7 +91,7 @@ export const ExpensesPage: React.FC = () => {
               tab === 'allocation' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
             }`}
           >
-            2. Phân bổ Chi phí chung & Nhân sự vào Dự án (Mục 5.4)
+            2. Phân bổ Chi phí chung & Nhân sự vào Dự án
           </button>
         </div>
 
@@ -154,7 +154,7 @@ export const ExpensesPage: React.FC = () => {
                 <th className="px-4 py-3 text-right">VAT</th>
                 <th className="px-4 py-3 text-right">Tổng sau thuế</th>
                 <th className="px-4 py-3">Đề xuất / Duyệt</th>
-                <th className="px-4 py-3">Trạng thái (Mục 5.3)</th>
+                <th className="px-4 py-3">Trạng thái</th>
                 <th className="px-4 py-3 text-right">Phê duyệt / Thanh toán</th>
               </tr>
             </thead>
@@ -256,7 +256,7 @@ export const ExpensesPage: React.FC = () => {
           >
             <div className="flex items-center gap-2 font-bold text-sm text-slate-900">
               <Split className="w-4 h-4 text-indigo-600" />
-              Cấu hình Phân bổ Chi phí chung / Chi phí nhân sự vào Dự án (Mục 5.4)
+              Cấu hình Phân bổ Chi phí chung / Chi phí nhân sự vào Dự án
             </div>
             {allocMessage && (
               <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold">
@@ -270,7 +270,8 @@ export const ExpensesPage: React.FC = () => {
                   type="number"
                   min={1}
                   max={12}
-                  value={allocMonth}
+                  placeholder="1"
+                  value={allocMonth === 0 ? '' : allocMonth}
                   onChange={(e) => setAllocMonth(Number(e.target.value))}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300"
                 />
@@ -279,7 +280,8 @@ export const ExpensesPage: React.FC = () => {
                 <label className="block font-semibold text-slate-600 mb-1">Năm</label>
                 <input
                   type="number"
-                  value={allocYear}
+                  placeholder="2026"
+                  value={allocYear === 0 ? '' : allocYear}
                   onChange={(e) => setAllocYear(Number(e.target.value))}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300"
                 />
@@ -296,7 +298,7 @@ export const ExpensesPage: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block font-semibold text-slate-600 mb-1">Phương pháp phân bổ (Mục 5.4)</label>
+                <label className="block font-semibold text-slate-600 mb-1">Phương pháp phân bổ</label>
                 <select
                   value={allocMethod}
                   onChange={(e) => setAllocMethod(e.target.value as AllocationMethod)}
@@ -376,7 +378,7 @@ export const ExpensesPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden">
             <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
-              <h3 className="font-bold text-sm">Đề Xuất Khoản Chi Phí Mới (Phần 5)</h3>
+              <h3 className="font-bold text-sm">Đề Xuất Khoản Chi Phí Mới</h3>
               <button onClick={() => setShowAddModal(false)}>✕</button>
             </div>
             <form onSubmit={handleCreate} className="p-6 space-y-4 text-xs">
@@ -465,7 +467,8 @@ export const ExpensesPage: React.FC = () => {
                   <label className="block font-semibold text-slate-700 mb-1">Thuế VAT (%)</label>
                   <input
                     type="number"
-                    value={form.vat_rate}
+                    placeholder="0"
+                    value={form.vat_rate === 0 ? '' : form.vat_rate}
                     onChange={(e) => setForm({ ...form, vat_rate: Number(e.target.value) })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300"
                   />
@@ -478,7 +481,7 @@ export const ExpensesPage: React.FC = () => {
                   checked={form.is_vat_deductible}
                   onChange={(e) => setForm({ ...form, is_vat_deductible: e.target.checked })}
                 />
-                VAT đầu vào có hóa đơn hợp lệ được khấu trừ (Mục 6.2)
+                VAT đầu vào có hóa đơn hợp lệ được khấu trừ
               </label>
 
               <div className="flex justify-end gap-2 pt-3 border-t">

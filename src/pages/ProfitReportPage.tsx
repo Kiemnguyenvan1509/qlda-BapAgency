@@ -94,7 +94,7 @@ export const ProfitReportPage: React.FC = () => {
               tab === 'by_project' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
             }`}
           >
-            1. Báo cáo Lợi nhuận từng Dự án (Mục 6.3)
+            1. Báo cáo Lợi nhuận từng Dự án
           </button>
           <button
             onClick={() => setTab('company')}
@@ -102,7 +102,7 @@ export const ProfitReportPage: React.FC = () => {
               tab === 'company' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
             }`}
           >
-            2. Báo cáo Lợi nhuận Toàn công ty (Mục 6.4)
+            2. Báo cáo Lợi nhuận Toàn công ty
           </button>
           <button
             onClick={() => setTab('by_staff')}
@@ -110,7 +110,7 @@ export const ProfitReportPage: React.FC = () => {
               tab === 'by_staff' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
             }`}
           >
-            3. Lợi nhuận theo Sale & Designer (Mục 6.5)
+            3. Lợi nhuận theo Sale & Designer
           </button>
         </div>
 

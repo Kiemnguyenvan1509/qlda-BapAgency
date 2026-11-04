@@ -55,6 +55,16 @@ export class CustomerModel {
     return data;
   }
 
+  static async deleteById(id: string) {
+    const db = requireSupabaseDb();
+    // Gỡ liên kết dự án của khách hàng này (hoặc cho phép xóa khách hàng sạch sẽ)
+    await db.from('projects').update({ customer_id: null }).eq('customer_id', id);
+    await db.from('payments').update({ customer_id: null }).eq('customer_id', id);
+    await db.from('customer_care_logs').delete().eq('customer_id', id);
+    const { error } = await db.from('customers').delete().eq('id', id);
+    if (error) throw error;
+  }
+
   static async getCareLogs() {
     const db = requireSupabaseDb();
     const { data, error } = await db.from('customer_care_logs').select('*').order('care_date', { ascending: false });
