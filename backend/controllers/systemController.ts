@@ -184,6 +184,34 @@ export class SystemController {
         }
       }
 
+      // Tự động khôi phục ca làm việc mặc định 'HC_01' nếu lỡ xóa hết trong bảng shifts
+      let finalShifts = shifts;
+      if (finalShifts.length === 0) {
+        const db = getSupabaseDb();
+        if (db) {
+          const { data: insertedShift } = await db
+            .from('shifts')
+            .upsert(
+              {
+                code: 'HC_01',
+                name: 'Ca hành chính (08:30 - 17:30)',
+                start_time: '08:30:00',
+                end_time: '17:30:00',
+                break_minutes: 60,
+                grace_late_minutes: 15,
+                work_day_ratio: 1.0,
+                is_active: true,
+              },
+              { onConflict: 'code' }
+            )
+            .select('*')
+            .single();
+          if (insertedShift) {
+            finalShifts = [insertedShift];
+          }
+        }
+      }
+
       const safeUsers = users.map((u: Record<string, unknown>) => ({
         ...u,
         password_hash: undefined,
@@ -196,7 +224,7 @@ export class SystemController {
           rolePermissions,
           departments,
           teams,
-          shifts,
+          shifts: finalShifts,
           employees,
           users: safeUsers,
           employeeTransfers,

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Database, Wifi, Trash2, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { Lock, Unlock, Database, Wifi, Trash2, KeyRound, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { DataScope } from '../types/database';
 import { formatDateTime } from '../lib/format';
@@ -42,8 +42,14 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
 
   const [tab, setTab] = useState<'rbac' | 'accounts' | 'catalogs' | 'audit'>('rbac');
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({});
+  const [loadingRevealId, setLoadingRevealId] = useState<string | null>(null);
+  const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+  const [lockingUserId, setLockingUserId] = useState<string | null>(null);
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
+  const [isSavingSetting, setIsSavingSetting] = useState(false);
 
   const handleToggleRevealPassword = async (userId: string) => {
+    if (loadingRevealId === userId) return;
     if (revealedPasswords[userId] !== undefined) {
       setRevealedPasswords((prev) => {
         const next = { ...prev };
@@ -52,11 +58,16 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
       });
       return;
     }
-    const res = await adminGetUserPassword(userId);
-    if (res.ok && typeof res.password === 'string') {
-      setRevealedPasswords((prev) => ({ ...prev, [userId]: res.password || '' }));
-    } else {
-      window.alert(res.error || 'Không thể xem mật khẩu.');
+    setLoadingRevealId(userId);
+    try {
+      const res = await adminGetUserPassword(userId);
+      if (res.ok && typeof res.password === 'string') {
+        setRevealedPasswords((prev) => ({ ...prev, [userId]: res.password || '' }));
+      } else {
+        window.alert(res.error || 'Không thể xem mật khẩu.');
+      }
+    } finally {
+      setLoadingRevealId(null);
     }
   };
   const [newStatus, setNewStatus] = useState('');
@@ -66,12 +77,17 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
   const [workDaysInput, setWorkDaysInput] = useState(standardWorkDays);
 
   const handleToggleHiddenField = async (roleId: string, currentHidden: string[], fieldKey: string) => {
-    if (!isAdmin) return;
+    if (!isAdmin || updatingRoleId) return;
     const role = roles.find((r) => r.id === roleId);
     if (!role) return;
-    const exists = currentHidden.includes(fieldKey);
-    const nextHidden = exists ? currentHidden.filter((f) => f !== fieldKey) : [...currentHidden, fieldKey];
-    await updateRoleConfig(roleId, role.data_scope, nextHidden);
+    setUpdatingRoleId(`${roleId}-${fieldKey}`);
+    try {
+      const exists = currentHidden.includes(fieldKey);
+      const nextHidden = exists ? currentHidden.filter((f) => f !== fieldKey) : [...currentHidden, fieldKey];
+      await updateRoleConfig(roleId, role.data_scope, nextHidden);
+    } finally {
+      setUpdatingRoleId(null);
+    }
   };
 
   if (!isAdmin) {
@@ -176,17 +192,20 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                         <div className="flex flex-wrap gap-2">
                           {SENSITIVE_FIELDS.map((sf) => {
                             const isHidden = hidden.includes(sf.key);
+                            const isUpdatingThis = updatingRoleId === `${r.id}-${sf.key}`;
                             return (
                               <button
                                 key={sf.key}
                                 type="button"
+                                disabled={Boolean(updatingRoleId)}
                                 onClick={() => handleToggleHiddenField(r.id, hidden, sf.key)}
-                                className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold cursor-pointer transition ${
+                                className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold cursor-pointer transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1 ${
                                   isHidden
                                     ? 'bg-rose-50 border-rose-300 text-rose-700'
                                     : 'bg-emerald-50 border-emerald-200 text-emerald-700'
                                 }`}
                               >
+                                {isUpdatingThis && <Loader2 className="w-3 h-3 animate-spin" />}
                                 {isHidden ? `Đang ẩn: ${sf.label}` : `Cho xem: ${sf.label}`}
                               </button>
                             );
@@ -234,11 +253,16 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                         </span>
                         <button
                           type="button"
+                          disabled={loadingRevealId === u.id}
                           onClick={() => handleToggleRevealPassword(u.id)}
                           title={revealed !== undefined ? 'Ẩn mật khẩu' : 'Xem mật khẩu hiện tại'}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 font-semibold cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {revealed !== undefined ? (
+                          {loadingRevealId === u.id ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> Đang tải...
+                            </>
+                          ) : revealed !== undefined ? (
                             <>
                               <EyeOff className="w-3.5 h-3.5 text-slate-500" /> Ẩn
                             </>
@@ -265,30 +289,58 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex items-center gap-2">
                         <button
+                          disabled={resettingUserId === u.id}
                           onClick={async () => {
+                            if (resettingUserId) return;
                             const newPass = window.prompt(
                               `Nhập mật khẩu mới cho tài khoản "${u.username}" (${emp?.full_name || 'Quản trị viên'}):`
                             );
                             if (!newPass) return;
-                            const res = await adminResetUserPassword(u.id, newPass);
-                            if (res.ok) {
-                              if (revealedPasswords[u.id] !== undefined) {
-                                setRevealedPasswords((prev) => ({ ...prev, [u.id]: newPass }));
+                            setResettingUserId(u.id);
+                            try {
+                              const res = await adminResetUserPassword(u.id, newPass);
+                              if (res.ok) {
+                                if (revealedPasswords[u.id] !== undefined) {
+                                  setRevealedPasswords((prev) => ({ ...prev, [u.id]: newPass }));
+                                }
+                                window.alert(`Đã cấp lại mật khẩu mới cho tài khoản "${u.username}".`);
+                              } else {
+                                window.alert(res.error || 'Không thể đặt lại mật khẩu.');
                               }
-                              window.alert(`Đã cấp lại mật khẩu mới cho tài khoản "${u.username}".`);
-                            } else {
-                              window.alert(res.error || 'Không thể đặt lại mật khẩu.');
+                            } finally {
+                              setResettingUserId(null);
                             }
                           }}
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold cursor-pointer"
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <KeyRound className="w-3.5 h-3.5" /> Đặt lại mật khẩu
+                          {resettingUserId === u.id ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang lưu...
+                            </>
+                          ) : (
+                            <>
+                              <KeyRound className="w-3.5 h-3.5" /> Đặt lại mật khẩu
+                            </>
+                          )}
                         </button>
                         <button
-                          onClick={() => toggleUserLock(u.id, !u.is_locked)}
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-300 font-semibold cursor-pointer"
+                          disabled={lockingUserId === u.id}
+                          onClick={async () => {
+                            if (lockingUserId) return;
+                            setLockingUserId(u.id);
+                            try {
+                              await toggleUserLock(u.id, !u.is_locked);
+                            } finally {
+                              setLockingUserId(null);
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-300 font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {u.is_locked ? (
+                          {lockingUserId === u.id ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang xử lý...
+                            </>
+                          ) : u.is_locked ? (
                             <>
                               <Unlock className="w-3.5 h-3.5 text-emerald-600" /> Mở khóa
                             </>
@@ -324,14 +376,20 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                 className="flex-1 px-3 py-2 rounded-xl border border-slate-300"
               />
               <button
+                disabled={isSavingSetting}
                 onClick={async () => {
-                  if (!newStatus.trim()) return;
-                  await saveSystemSetting('project_statuses', [...projectStatuses, newStatus.trim()]);
-                  setNewStatus('');
+                  if (!newStatus.trim() || isSavingSetting) return;
+                  setIsSavingSetting(true);
+                  try {
+                    await saveSystemSetting('project_statuses', [...projectStatuses, newStatus.trim()]);
+                    setNewStatus('');
+                  } finally {
+                    setIsSavingSetting(false);
+                  }
                 }}
-                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
               >
-                Thêm
+                {isSavingSetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Thêm'}
               </button>
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
@@ -357,14 +415,20 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                 className="flex-1 px-3 py-2 rounded-xl border border-slate-300"
               />
               <button
+                disabled={isSavingSetting}
                 onClick={async () => {
-                  if (!newJobType.trim()) return;
-                  await saveSystemSetting('job_types', [...jobTypes, newJobType.trim()]);
-                  setNewJobType('');
+                  if (!newJobType.trim() || isSavingSetting) return;
+                  setIsSavingSetting(true);
+                  try {
+                    await saveSystemSetting('job_types', [...jobTypes, newJobType.trim()]);
+                    setNewJobType('');
+                  } finally {
+                    setIsSavingSetting(false);
+                  }
                 }}
-                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
               >
-                Thêm JOB
+                {isSavingSetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Thêm JOB'}
               </button>
             </div>
             <div className="flex flex-wrap gap-2 py-2">
@@ -387,10 +451,19 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                     className="w-full px-3 py-2 rounded-xl border border-slate-300"
                   />
                   <button
-                    onClick={() => saveSystemSetting('default_vat_rate', vatInput)}
-                    className="px-3 py-2 rounded-xl bg-slate-900 text-white font-semibold"
+                    disabled={isSavingSetting}
+                    onClick={async () => {
+                      if (isSavingSetting) return;
+                      setIsSavingSetting(true);
+                      try {
+                        await saveSystemSetting('default_vat_rate', vatInput);
+                      } finally {
+                        setIsSavingSetting(false);
+                      }
+                    }}
+                    className="px-3 py-2 rounded-xl bg-slate-900 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                   >
-                    Lưu
+                    {isSavingSetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Lưu'}
                   </button>
                 </div>
               </div>
@@ -405,10 +478,19 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                     className="w-full px-3 py-2 rounded-xl border border-slate-300"
                   />
                   <button
-                    onClick={() => saveSystemSetting('standard_work_days', workDaysInput)}
-                    className="px-3 py-2 rounded-xl bg-slate-900 text-white font-semibold"
+                    disabled={isSavingSetting}
+                    onClick={async () => {
+                      if (isSavingSetting) return;
+                      setIsSavingSetting(true);
+                      try {
+                        await saveSystemSetting('standard_work_days', workDaysInput);
+                      } finally {
+                        setIsSavingSetting(false);
+                      }
+                    }}
+                    className="px-3 py-2 rounded-xl bg-slate-900 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                   >
-                    Lưu
+                    {isSavingSetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Lưu'}
                   </button>
                 </div>
               </div>
@@ -422,13 +504,20 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                 </label>
                 {currentClientIp && (
                   <button
+                    disabled={isSavingSetting}
                     onClick={async () => {
-                      const updated = Array.from(new Set([...officeAllowedIps, currentClientIp]));
-                      await saveSystemSetting('office_allowed_ips', updated);
+                      if (isSavingSetting) return;
+                      setIsSavingSetting(true);
+                      try {
+                        const updated = Array.from(new Set([...officeAllowedIps, currentClientIp]));
+                        await saveSystemSetting('office_allowed_ips', updated);
+                      } finally {
+                        setIsSavingSetting(false);
+                      }
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                   >
-                    + Đặt mạng hiện tại làm Wi-Fi Công ty
+                    {isSavingSetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '+ Đặt mạng hiện tại làm Wi-Fi Công ty'}
                   </button>
                 )}
               </div>
@@ -444,16 +533,22 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                   className="flex-1 px-3 py-2 rounded-xl border border-slate-300 font-mono"
                 />
                 <button
+                  disabled={isSavingSetting}
                   onClick={async () => {
                     const clean = newOfficeIp.trim();
-                    if (!clean) return;
-                    const updated = Array.from(new Set([...officeAllowedIps, clean]));
-                    await saveSystemSetting('office_allowed_ips', updated);
-                    setNewOfficeIp('');
+                    if (!clean || isSavingSetting) return;
+                    setIsSavingSetting(true);
+                    try {
+                      const updated = Array.from(new Set([...officeAllowedIps, clean]));
+                      await saveSystemSetting('office_allowed_ips', updated);
+                      setNewOfficeIp('');
+                    } finally {
+                      setIsSavingSetting(false);
+                    }
                   }}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                 >
-                  Thêm mạng
+                  {isSavingSetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Thêm mạng'}
                 </button>
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
@@ -467,11 +562,18 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                     >
                       Mạng Wi-Fi Công ty #{idx + 1} (Đã ẩn IP)
                       <button
+                        disabled={isSavingSetting}
                         onClick={async () => {
-                          const updated = officeAllowedIps.filter((item) => item !== ip);
-                          await saveSystemSetting('office_allowed_ips', updated);
+                          if (isSavingSetting) return;
+                          setIsSavingSetting(true);
+                          try {
+                            const updated = officeAllowedIps.filter((item) => item !== ip);
+                            await saveSystemSetting('office_allowed_ips', updated);
+                          } finally {
+                            setIsSavingSetting(false);
+                          }
                         }}
-                        className="text-rose-600 hover:text-rose-800 cursor-pointer"
+                        className="text-rose-600 hover:text-rose-800 cursor-pointer disabled:opacity-50"
                         title="Xóa cấu hình mạng này"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

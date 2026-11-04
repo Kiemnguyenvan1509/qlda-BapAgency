@@ -24,6 +24,8 @@ export const CustomersPage: React.FC = () => {
   const [formError, setFormError] = useState('');
   const [isSubmittingCust, setIsSubmittingCust] = useState(false);
   const submitCustLock = useRef(false);
+  const [deletingCustId, setDeletingCustId] = useState<string | null>(null);
+  const [isSavingCareLog, setIsSavingCareLog] = useState(false);
 
   const [careChannel, setCareChannel] = useState('Điện thoại');
   const [careContent, setCareContent] = useState('');
@@ -208,7 +210,9 @@ export const CustomersPage: React.FC = () => {
                           Sửa
                         </button>
                         <button
+                          disabled={deletingCustId === c.id}
                           onClick={async () => {
+                            if (deletingCustId) return;
                             if (
                               !window.confirm(
                                 `Bạn có chắc chắn muốn xóa khách hàng [${c.customer_code}] ${c.name} không?`
@@ -216,14 +220,27 @@ export const CustomersPage: React.FC = () => {
                             ) {
                               return;
                             }
-                            const res = await deleteCustomer(c.id);
-                            if (!res.ok) {
-                              alert(res.error || 'Không thể xóa khách hàng');
+                            setDeletingCustId(c.id);
+                            try {
+                              const res = await deleteCustomer(c.id);
+                              if (!res.ok) {
+                                alert(res.error || 'Không thể xóa khách hàng');
+                              }
+                            } finally {
+                              setDeletingCustId(null);
                             }
                           }}
-                          className="inline-flex items-center gap-0.5 text-rose-600 font-semibold hover:underline cursor-pointer"
+                          className="inline-flex items-center gap-0.5 text-rose-600 font-semibold hover:underline cursor-pointer disabled:opacity-50"
                         >
-                          <Trash2 className="w-3.5 h-3.5" /> Xóa
+                          {deletingCustId === c.id ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang xóa...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="w-3.5 h-3.5" /> Xóa
+                            </>
+                          )}
                         </button>
                       </td>
                     </tr>
@@ -451,14 +468,28 @@ export const CustomersPage: React.FC = () => {
                     className="flex-1 px-3 py-2 rounded-xl border border-slate-300"
                   />
                   <button
+                    disabled={isSavingCareLog}
                     onClick={async () => {
-                      if (!careContent.trim()) return;
-                      await addCustomerCareLog(selectedCustomer.id, careChannel, careContent);
-                      setCareContent('');
+                      if (!careContent.trim() || isSavingCareLog) return;
+                      setIsSavingCareLog(true);
+                      try {
+                        await addCustomerCareLog(selectedCustomer.id, careChannel, careContent);
+                        setCareContent('');
+                      } finally {
+                        setIsSavingCareLog(false);
+                      }
                     }}
-                    className="inline-flex items-center gap-1 px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer"
+                    className="inline-flex items-center gap-1 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer disabled:opacity-50"
                   >
-                    <MessageSquarePlus className="w-4 h-4" /> Lưu CSKH
+                    {isSavingCareLog ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Đang lưu...
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquarePlus className="w-4 h-4" /> Lưu CSKH
+                      </>
+                    )}
                   </button>
                 </div>
 

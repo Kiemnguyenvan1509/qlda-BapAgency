@@ -44,6 +44,9 @@ export const HrPage: React.FC = () => {
   const [savingSalary, setSavingSalary] = useState(false);
   const [salaryError, setSalaryError] = useState('');
   const [isCreatingEmp, setIsCreatingEmp] = useState(false);
+  const [isCreatingDept, setIsCreatingDept] = useState(false);
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false);
+  const [isTransferring, setIsTransferring] = useState(false);
   const creatingEmpLock = useRef(false);
   const [deletingEmpId, setDeletingEmpId] = useState<string | null>(null);
   const [empError, setEmpError] = useState('');
@@ -357,15 +360,27 @@ export const HrPage: React.FC = () => {
                 ))}
               </select>
               <button
+                disabled={isCreatingDept}
                 onClick={async () => {
-                  if (!deptCode.trim() || !deptName.trim()) return;
-                  await createDepartment(deptCode, deptName, deptManager || null);
-                  setDeptCode('');
-                  setDeptName('');
+                  if (!deptCode.trim() || !deptName.trim() || isCreatingDept) return;
+                  setIsCreatingDept(true);
+                  try {
+                    await createDepartment(deptCode, deptName, deptManager || null);
+                    setDeptCode('');
+                    setDeptName('');
+                  } finally {
+                    setIsCreatingDept(false);
+                  }
                 }}
-                className="px-3 py-2 rounded-lg bg-indigo-600 text-white font-semibold cursor-pointer"
+                className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
               >
-                Tạo Phòng
+                {isCreatingDept ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang tạo...
+                  </>
+                ) : (
+                  'Tạo Phòng'
+                )}
               </button>
             </div>
 
@@ -418,15 +433,27 @@ export const HrPage: React.FC = () => {
                 ))}
               </select>
               <button
+                disabled={isCreatingTeam}
                 onClick={async () => {
-                  if (!teamCode.trim() || !teamName.trim()) return;
-                  await createTeam(teamCode, teamName, teamDept || null, teamLeader || null);
-                  setTeamCode('');
-                  setTeamName('');
+                  if (!teamCode.trim() || !teamName.trim() || isCreatingTeam) return;
+                  setIsCreatingTeam(true);
+                  try {
+                    await createTeam(teamCode, teamName, teamDept || null, teamLeader || null);
+                    setTeamCode('');
+                    setTeamName('');
+                  } finally {
+                    setIsCreatingTeam(false);
+                  }
                 }}
-                className="px-3 py-2 rounded-lg bg-emerald-600 text-white font-semibold cursor-pointer"
+                className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
               >
-                Tạo Nhóm
+                {isCreatingTeam ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang tạo...
+                  </>
+                ) : (
+                  'Tạo Nhóm'
+                )}
               </button>
             </div>
 
@@ -786,20 +813,34 @@ export const HrPage: React.FC = () => {
             </div>
             <div className="flex justify-end gap-2">
               <button
+                disabled={isTransferring}
                 onClick={() => setTransferTarget(null)}
-                className="px-4 py-2 rounded-xl border border-slate-300 font-semibold"
+                className="px-4 py-2 rounded-xl border border-slate-300 font-semibold disabled:opacity-50"
               >
                 Hủy
               </button>
               <button
+                disabled={isTransferring}
                 onClick={async () => {
-                  await transferEmployee(transferTarget.id, transDept || null, transTeam || null, transReason);
-                  setTransferTarget(null);
-                  setTransReason('');
+                  if (isTransferring) return;
+                  setIsTransferring(true);
+                  try {
+                    await transferEmployee(transferTarget.id, transDept || null, transTeam || null, transReason);
+                    setTransferTarget(null);
+                    setTransReason('');
+                  } finally {
+                    setIsTransferring(false);
+                  }
                 }}
-                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer disabled:opacity-50"
               >
-                Xác nhận điều chuyển
+                {isTransferring ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang điều chuyển...
+                  </>
+                ) : (
+                  'Xác nhận điều chuyển'
+                )}
               </button>
             </div>
           </div>

@@ -13,6 +13,7 @@ import {
   Plus,
   ExternalLink,
   Lock,
+  Loader2,
 } from 'lucide-react';
 import { Project, ProjectFile } from '../types/database';
 import { useErp } from '../context/ErpContext';
@@ -110,6 +111,16 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
   const [fileCat, setFileCat] = useState<ProjectFile['file_category']>('File thiết kế');
   const [fileName, setFileName] = useState('');
   const [fileUrl, setFileUrl] = useState('');
+
+  // Loading states
+  const [isAdjustingContract, setIsAdjustingContract] = useState(false);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [confirmingPayId, setConfirmingPayId] = useState<string | null>(null);
+  const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
+  const [updatingExpId, setUpdatingExpId] = useState<string | null>(null);
+  const [isAddingWorkLog, setIsAddingWorkLog] = useState(false);
+  const [isHandingOver, setIsHandingOver] = useState(false);
+  const [isAddingFile, setIsAddingFile] = useState(false);
 
   if (!project) return null;
 
@@ -459,21 +470,34 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                       <div className="flex justify-end">
                         <button
                           type="button"
-                          onClick={() =>
-                            adjustProjectContract(
-                              project.id,
-                              inputContractVal,
-                              vatRate,
-                              taxMode,
-                              contractStatus,
-                              contractNumber,
-                              contractSignDate,
-                              contractReason || 'Cập nhật hợp đồng'
-                            )
-                          }
-                          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer"
+                          disabled={isAdjustingContract}
+                          onClick={async () => {
+                            if (isAdjustingContract) return;
+                            setIsAdjustingContract(true);
+                            try {
+                              await adjustProjectContract(
+                                project.id,
+                                inputContractVal,
+                                vatRate,
+                                taxMode,
+                                contractStatus,
+                                contractNumber,
+                                contractSignDate,
+                                contractReason || 'Cập nhật hợp đồng'
+                              );
+                            } finally {
+                              setIsAdjustingContract(false);
+                            }
+                          }}
+                          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                         >
-                          Lưu Hợp đồng & Ghi lịch sử điều chỉnh
+                          {isAdjustingContract ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang lưu hợp đồng...
+                            </>
+                          ) : (
+                            'Lưu Hợp đồng & Ghi lịch sử điều chỉnh'
+                          )}
                         </button>
                       </div>
                     )}
@@ -603,23 +627,29 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                         />
                         <button
                           type="button"
+                          disabled={isSubmittingPayment}
                           onClick={async () => {
-                            if (payAmount <= 0) return;
-                            await createPayment({
-                              project_id: project.id,
-                              installment_name: payInstallment,
-                              amount: payAmount,
-                              payment_date: payDate,
-                              payment_method: payMethod,
-                              bank_tx_code: payBankCode,
-                              status: 'Chờ xác nhận',
-                            });
-                            setPayAmount(0);
-                            setPayBankCode('');
+                            if (payAmount <= 0 || isSubmittingPayment) return;
+                            setIsSubmittingPayment(true);
+                            try {
+                              await createPayment({
+                                project_id: project.id,
+                                installment_name: payInstallment,
+                                amount: payAmount,
+                                payment_date: payDate,
+                                payment_method: payMethod,
+                                bank_tx_code: payBankCode,
+                                status: 'Chờ xác nhận',
+                              });
+                              setPayAmount(0);
+                              setPayBankCode('');
+                            } finally {
+                              setIsSubmittingPayment(false);
+                            }
                           }}
-                          className="px-3.5 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold shrink-0 cursor-pointer"
+                          className="px-3.5 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                         >
-                          <Plus className="w-4 h-4" />
+                          {isSubmittingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
@@ -677,10 +707,27 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                                 {pay.status === 'Chờ xác nhận' && canAction('payments', 'confirm_tx') && (
                                   <button
                                     type="button"
-                                    onClick={() => confirmPayment(pay.id)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold cursor-pointer"
+                                    disabled={confirmingPayId === pay.id}
+                                    onClick={async () => {
+                                      if (confirmingPayId) return;
+                                      setConfirmingPayId(pay.id);
+                                      try {
+                                        await confirmPayment(pay.id);
+                                      } finally {
+                                        setConfirmingPayId(null);
+                                      }
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
-                                    <CheckCircle2 className="w-3.5 h-3.5" /> Xác nhận thu
+                                    {confirmingPayId === pay.id ? (
+                                      <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang duyệt...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CheckCircle2 className="w-3.5 h-3.5" /> Xác nhận thu
+                                      </>
+                                    )}
                                   </button>
                                 )}
                               </td>
@@ -745,25 +792,31 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                     />
                     <button
                       type="button"
+                      disabled={isSubmittingExpense}
                       onClick={async () => {
-                        if (!expTitle.trim() || expAmount <= 0) return;
-                        await createExpense({
-                          expense_scope: 'project',
-                          project_id: project.id,
-                          title: expTitle,
-                          category_name: expCat,
-                          amount_before_tax: expAmount,
-                          vat_rate: expVat,
-                          is_vat_deductible: expDeductible,
-                          recipient_name: expRecipient,
-                          status: 'Chờ duyệt',
-                        });
-                        setExpTitle('');
-                        setExpAmount(0);
+                        if (!expTitle.trim() || expAmount <= 0 || isSubmittingExpense) return;
+                        setIsSubmittingExpense(true);
+                        try {
+                          await createExpense({
+                            expense_scope: 'project',
+                            project_id: project.id,
+                            title: expTitle,
+                            category_name: expCat,
+                            amount_before_tax: expAmount,
+                            vat_rate: expVat,
+                            is_vat_deductible: expDeductible,
+                            recipient_name: expRecipient,
+                            status: 'Chờ duyệt',
+                          });
+                          setExpTitle('');
+                          setExpAmount(0);
+                        } finally {
+                          setIsSubmittingExpense(false);
+                        }
                       }}
-                      className="px-3.5 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold shrink-0 cursor-pointer"
+                      className="px-3.5 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                     >
-                      <Plus className="w-4 h-4" />
+                      {isSubmittingExpense ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -820,15 +873,35 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                             {exp.status === 'Chờ duyệt' && canAction('expenses', 'approve') && (
                               <>
                                 <button
-                                  onClick={() => updateExpenseStatus(exp.id, 'Đã duyệt')}
-                                  className="px-2 py-1 rounded bg-emerald-600 text-white text-[11px] font-semibold"
+                                  disabled={updatingExpId === exp.id}
+                                  onClick={async () => {
+                                    if (updatingExpId) return;
+                                    setUpdatingExpId(exp.id);
+                                    try {
+                                      await updateExpenseStatus(exp.id, 'Đã duyệt');
+                                    } finally {
+                                      setUpdatingExpId(null);
+                                    }
+                                  }}
+                                  className="px-2 py-1 rounded bg-emerald-600 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                                 >
+                                  {updatingExpId === exp.id && <Loader2 className="w-3 h-3 animate-spin" />}
                                   Duyệt
                                 </button>
                                 <button
-                                  onClick={() => updateExpenseStatus(exp.id, 'Từ chối')}
-                                  className="px-2 py-1 rounded bg-rose-600 text-white text-[11px] font-semibold"
+                                  disabled={updatingExpId === exp.id}
+                                  onClick={async () => {
+                                    if (updatingExpId) return;
+                                    setUpdatingExpId(exp.id);
+                                    try {
+                                      await updateExpenseStatus(exp.id, 'Từ chối');
+                                    } finally {
+                                      setUpdatingExpId(null);
+                                    }
+                                  }}
+                                  className="px-2 py-1 rounded bg-rose-600 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                                 >
+                                  {updatingExpId === exp.id && <Loader2 className="w-3 h-3 animate-spin" />}
                                   Từ chối
                                 </button>
                               </>
@@ -899,15 +972,21 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                     />
                     <button
                       type="button"
+                      disabled={isAddingWorkLog}
                       onClick={async () => {
-                        if (!stepName.trim()) return;
-                        await addWorkLog(project.id, stepName, stepProgress, stepStatus, stepHours, stepNote);
-                        setStepName('');
-                        setStepNote('');
+                        if (!stepName.trim() || isAddingWorkLog) return;
+                        setIsAddingWorkLog(true);
+                        try {
+                          await addWorkLog(project.id, stepName, stepProgress, stepStatus, stepHours, stepNote);
+                          setStepName('');
+                          setStepNote('');
+                        } finally {
+                          setIsAddingWorkLog(false);
+                        }
                       }}
-                      className="px-3.5 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold shrink-0 cursor-pointer"
+                      className="px-3.5 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                     >
-                      Lưu
+                      {isAddingWorkLog ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Lưu'}
                     </button>
                   </div>
                 </div>
@@ -979,14 +1058,26 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                   />
                   <button
                     type="button"
+                    disabled={isHandingOver}
                     onClick={async () => {
-                      if (!handoverNewEmp) return;
-                      await handoverProjectStaff(project.id, handoverRole, handoverNewEmp, handoverNote);
-                      setHandoverNote('');
+                      if (!handoverNewEmp || isHandingOver) return;
+                      setIsHandingOver(true);
+                      try {
+                        await handoverProjectStaff(project.id, handoverRole, handoverNewEmp, handoverNote);
+                        setHandoverNote('');
+                      } finally {
+                        setIsHandingOver(false);
+                      }
                     }}
-                    className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer"
+                    className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                   >
-                    Xác nhận bàn giao
+                    {isHandingOver ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang chuyển giao...
+                      </>
+                    ) : (
+                      'Xác nhận bàn giao'
+                    )}
                   </button>
                 </div>
               </div>
@@ -1069,15 +1160,27 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                   />
                   <button
                     type="button"
+                    disabled={isAddingFile}
                     onClick={async () => {
-                      if (!fileName.trim() || !fileUrl.trim()) return;
-                      await addProjectFile(project.id, fileCat, fileName, fileUrl);
-                      setFileName('');
-                      setFileUrl('');
+                      if (!fileName.trim() || !fileUrl.trim() || isAddingFile) return;
+                      setIsAddingFile(true);
+                      try {
+                        await addProjectFile(project.id, fileCat, fileName, fileUrl);
+                        setFileName('');
+                        setFileUrl('');
+                      } finally {
+                        setIsAddingFile(false);
+                      }
                     }}
-                    className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer"
+                    className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                   >
-                    Thêm tài liệu
+                    {isAddingFile ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang lưu...
+                      </>
+                    ) : (
+                      'Thêm tài liệu'
+                    )}
                   </button>
                 </div>
               </div>

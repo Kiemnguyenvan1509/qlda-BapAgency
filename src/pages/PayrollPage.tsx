@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Calculator, Lock, Unlock, Download, FileText, CheckCircle2 } from 'lucide-react';
+import { Calculator, Lock, Unlock, Download, FileText, CheckCircle2, Loader2 } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
-import { PayrollDetail } from '../types/database';
+import { Payroll, PayrollDetail } from '../types/database';
 import { exportToExcel, formatCurrency } from '../lib/format';
 
 export const PayrollPage: React.FC = () => {
@@ -24,6 +24,8 @@ export const PayrollPage: React.FC = () => {
   const [stdDays, setStdDays] = useState<number>(standardWorkDays);
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollDetail | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [updatingStatusAction, setUpdatingStatusAction] = useState<string | null>(null);
 
   const canManagePayroll =
     canAction('payroll', 'edit') ||
@@ -44,9 +46,31 @@ export const PayrollPage: React.FC = () => {
   const isReadOnlyRow = isLocked || !canManagePayroll;
 
   const handleGenerate = async () => {
+    if (isGenerating || isLocked) return;
     setErrorMsg('');
-    const res = await generateMonthlyPayroll(month, year, stdDays);
-    if (!res.ok) setErrorMsg(res.error || 'Lỗi tổng hợp bảng lương');
+    setIsGenerating(true);
+    try {
+      const res = await generateMonthlyPayroll(month, year, stdDays);
+      if (!res.ok) setErrorMsg(res.error || 'Lỗi tổng hợp bảng lương');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleChangeStatus = async (
+    newStatus: Payroll['status'],
+    actionName: string,
+    reason?: string
+  ) => {
+    if (!currentPayroll || updatingStatusAction) return;
+    setUpdatingStatusAction(actionName);
+    setErrorMsg('');
+    try {
+      const res = await changePayrollStatus(currentPayroll.id, newStatus, reason);
+      if (!res.ok) setErrorMsg(res.error || 'Lỗi cập nhật trạng thái bảng lương');
+    } finally {
+      setUpdatingStatusAction(null);
+    }
   };
 
   return (
@@ -85,10 +109,18 @@ export const PayrollPage: React.FC = () => {
 
               <button
                 onClick={handleGenerate}
-                disabled={isLocked}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer disabled:opacity-40"
+                disabled={isLocked || isGenerating}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Calculator className="w-4 h-4" /> Tổng hợp tự động từ Bảng công
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Đang tổng hợp...
+                  </>
+                ) : (
+                  <>
+                    <Calculator className="w-4 h-4" /> Tổng hợp tự động từ Bảng công
+                  </>
+                )}
               </button>
             </>
           )}
@@ -102,31 +134,49 @@ export const PayrollPage: React.FC = () => {
             {currentPayroll.status !== 'Đã khóa' && canAction('payroll', 'approve') && (
               <>
                 <button
-                  onClick={() => changePayrollStatus(currentPayroll.id, 'Đã duyệt')}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-semibold cursor-pointer"
+                  disabled={!!updatingStatusAction}
+                  onClick={() => handleChangeStatus('Đã duyệt', 'approve')}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Duyệt bảng lương
+                  {updatingStatusAction === 'approve' ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  )}
+                  {updatingStatusAction === 'approve' ? 'Đang duyệt...' : 'Duyệt bảng lương'}
                 </button>
                 <button
-                  onClick={() => changePayrollStatus(currentPayroll.id, 'Đã khóa')}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 text-white font-semibold cursor-pointer"
+                  disabled={!!updatingStatusAction}
+                  onClick={() => handleChangeStatus('Đã khóa', 'lock')}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Lock className="w-3.5 h-3.5" /> Khóa bảng lương
+                  {updatingStatusAction === 'lock' ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Lock className="w-3.5 h-3.5" />
+                  )}
+                  {updatingStatusAction === 'lock' ? 'Đang khóa...' : 'Khóa bảng lương'}
                 </button>
               </>
             )}
             {currentPayroll.status === 'Đã khóa' && canAction('payroll', 'approve') && (
               <button
+                disabled={!!updatingStatusAction}
                 onClick={() => {
                   const reason = window.prompt(
                     'Nhập lý do Mở khóa bảng lương:',
                     'Điều chỉnh bổ sung phụ cấp/thưởng'
                   );
-                  if (reason) changePayrollStatus(currentPayroll.id, 'Chờ duyệt', reason);
+                  if (reason) handleChangeStatus('Chờ duyệt', 'unlock', reason);
                 }}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600 text-white font-semibold cursor-pointer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Unlock className="w-3.5 h-3.5" /> Mở khóa có nhật ký
+                {updatingStatusAction === 'unlock' ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Unlock className="w-3.5 h-3.5" />
+                )}
+                {updatingStatusAction === 'unlock' ? 'Đang mở khóa...' : 'Mở khóa có nhật ký'}
               </button>
             )}
             <button

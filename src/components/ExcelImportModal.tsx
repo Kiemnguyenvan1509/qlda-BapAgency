@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight, Loader2 } from 'lucide-react';
 import { parseExcelFile, formatCurrency } from '../lib/format';
 import { useErp } from '../context/ErpContext';
 
@@ -259,10 +259,18 @@ export const ExcelImportModal: React.FC<Props> = ({ isOpen, onClose }) => {
               type="button"
               disabled={importing}
               onClick={handleConfirmImport}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {importing ? 'Đang nhập vào Supabase...' : `Xác nhận nhập ${rawRows.length} dòng`}
-              <ArrowRight className="w-4 h-4" />
+              {importing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Đang nhập vào Supabase...
+                </>
+              ) : (
+                <>
+                  {`Xác nhận nhập ${rawRows.length} dòng`}
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           )}
         </div>

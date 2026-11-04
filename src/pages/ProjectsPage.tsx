@@ -71,6 +71,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [actionError, setActionError] = useState('');
   const [isCreatingProj, setIsCreatingProj] = useState(false);
+  const [actionProjId, setActionProjId] = useState<string | null>(null);
   const creatingProjLock = useRef(false);
 
   // Form state tạo dự án
@@ -558,28 +559,54 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                           </button>
                           <button
                             title="Nhân bản dự án"
-                            onClick={() => duplicateProject(p)}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer"
+                            disabled={actionProjId === p.id}
+                            onClick={async () => {
+                              if (actionProjId) return;
+                              setActionProjId(p.id);
+                              try {
+                                await duplicateProject(p);
+                              } finally {
+                                setActionProjId(null);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Copy className="w-4 h-4" />
+                            {actionProjId === p.id ? <Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> : <Copy className="w-4 h-4" />}
                           </button>
                           <button
                             title={p.is_archived ? 'Khôi phục' : 'Lưu trữ dự án'}
-                            onClick={() => archiveProject(p.id, !p.is_archived)}
-                            className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-700 cursor-pointer"
+                            disabled={actionProjId === p.id}
+                            onClick={async () => {
+                              if (actionProjId) return;
+                              setActionProjId(p.id);
+                              try {
+                                await archiveProject(p.id, !p.is_archived);
+                              } finally {
+                                setActionProjId(null);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Archive className="w-4 h-4" />
+                            {actionProjId === p.id ? <Loader2 className="w-4 h-4 animate-spin text-amber-600" /> : <Archive className="w-4 h-4" />}
                           </button>
                           {canAction('projects', 'delete') && (
                             <button
                               title="Xóa dự án (chỉ cho phép khi chưa phát sinh tài chính)"
+                              disabled={actionProjId === p.id}
                               onClick={async () => {
-                                const res = await deleteProject(p.id);
-                                if (!res.ok && res.error) setActionError(res.error);
+                                if (actionProjId) return;
+                                if (!window.confirm(`Xác nhận xóa dự án "${p.name}"?`)) return;
+                                setActionProjId(p.id);
+                                try {
+                                  const res = await deleteProject(p.id);
+                                  if (!res.ok && res.error) setActionError(res.error);
+                                } finally {
+                                  setActionProjId(null);
+                                }
                               }}
-                              className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 cursor-pointer"
+                              className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {actionProjId === p.id ? <Loader2 className="w-4 h-4 animate-spin text-rose-600" /> : <Trash2 className="w-4 h-4" />}
                             </button>
                           )}
                         </div>

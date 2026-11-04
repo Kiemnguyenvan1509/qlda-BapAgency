@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Split, Download } from 'lucide-react';
+import { Plus, Split, Download, Loader2 } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { AllocationMethod, ExpenseScope } from '../types/database';
 import { exportToExcel, formatCurrency, formatDate, getTodayISO } from '../lib/format';
@@ -19,6 +19,9 @@ export const ExpensesPage: React.FC = () => {
   const [tab, setTab] = useState<'list' | 'allocation'>('list');
   const [scopeFilter, setScopeFilter] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
+  const [updatingExpStatusId, setUpdatingExpStatusId] = useState<string | null>(null);
+  const [isRunningAlloc, setIsRunningAlloc] = useState(false);
 
   const [form, setForm] = useState({
     expense_scope: 'project' as ExpenseScope,
@@ -48,28 +51,38 @@ export const ExpensesPage: React.FC = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim() || form.amount_before_tax <= 0) return;
-    const res = await createExpense(form);
-    if (res.ok) {
-      setShowAddModal(false);
-      setForm({ ...form, title: '', amount_before_tax: 0, notes: '' });
+    if (!form.title.trim() || form.amount_before_tax <= 0 || isSubmittingExpense) return;
+    setIsSubmittingExpense(true);
+    try {
+      const res = await createExpense(form);
+      if (res.ok) {
+        setShowAddModal(false);
+        setForm({ ...form, title: '', amount_before_tax: 0, notes: '' });
+      }
+    } finally {
+      setIsSubmittingExpense(false);
     }
   };
 
   const handleRunAllocation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (allocTotal <= 0) return;
-    const res = await runCostAllocation({
-      month: allocMonth,
-      year: allocYear,
-      costType: allocType,
-      method: allocMethod,
-      totalAmountToAllocate: allocTotal,
-    });
-    if (res.ok) {
-      setAllocMessage(`Đã phân bổ thành công ${formatCurrency(allocTotal)} vào các dự án hoạt động!`);
-    } else {
-      setAllocMessage(res.error || 'Lỗi phân bổ');
+    if (allocTotal <= 0 || isRunningAlloc) return;
+    setIsRunningAlloc(true);
+    try {
+      const res = await runCostAllocation({
+        month: allocMonth,
+        year: allocYear,
+        costType: allocType,
+        method: allocMethod,
+        totalAmountToAllocate: allocTotal,
+      });
+      if (res.ok) {
+        setAllocMessage(`Đã phân bổ thành công ${formatCurrency(allocTotal)} vào các dự án hoạt động!`);
+      } else {
+        setAllocMessage(res.error || 'Lỗi phân bổ');
+      }
+    } finally {
+      setIsRunningAlloc(false);
     }
   };
 
@@ -219,24 +232,54 @@ export const ExpensesPage: React.FC = () => {
                         {exp.status === 'Chờ duyệt' && canAction('expenses', 'approve') && (
                           <>
                             <button
-                              onClick={() => updateExpenseStatus(exp.id, 'Đã duyệt')}
-                              className="px-2 py-1 rounded bg-emerald-600 text-white text-[11px] font-semibold cursor-pointer"
+                              disabled={updatingExpStatusId === exp.id}
+                              onClick={async () => {
+                                if (updatingExpStatusId) return;
+                                setUpdatingExpStatusId(exp.id);
+                                try {
+                                  await updateExpenseStatus(exp.id, 'Đã duyệt');
+                                } finally {
+                                  setUpdatingExpStatusId(null);
+                                }
+                              }}
+                              className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
                             >
+                              {updatingExpStatusId === exp.id ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : null}
                               Duyệt
                             </button>
                             <button
-                              onClick={() => updateExpenseStatus(exp.id, 'Từ chối')}
-                              className="px-2 py-1 rounded bg-rose-600 text-white text-[11px] font-semibold cursor-pointer"
+                              disabled={updatingExpStatusId === exp.id}
+                              onClick={async () => {
+                                if (updatingExpStatusId) return;
+                                setUpdatingExpStatusId(exp.id);
+                                try {
+                                  await updateExpenseStatus(exp.id, 'Từ chối');
+                                } finally {
+                                  setUpdatingExpStatusId(null);
+                                }
+                              }}
+                              className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
                             >
+                              {updatingExpStatusId === exp.id ? <Loader2 className="w-3 h-3 animate-spin inline mr-1" /> : null}
                               Từ chối
                             </button>
                           </>
                         )}
                         {exp.status === 'Đã duyệt' && canAction('expenses', 'confirm_tx') && (
                           <button
-                            onClick={() => updateExpenseStatus(exp.id, 'Đã thanh toán')}
-                            className="px-2.5 py-1 rounded bg-indigo-600 text-white text-[11px] font-semibold cursor-pointer"
+                            disabled={updatingExpStatusId === exp.id}
+                            onClick={async () => {
+                              if (updatingExpStatusId) return;
+                              setUpdatingExpStatusId(exp.id);
+                              try {
+                                await updateExpenseStatus(exp.id, 'Đã thanh toán');
+                              } finally {
+                                setUpdatingExpStatusId(null);
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
                           >
+                            {updatingExpStatusId === exp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin inline mr-1" /> : null}
                             Xác nhận đã chi
                           </button>
                         )}
@@ -322,9 +365,16 @@ export const ExpensesPage: React.FC = () => {
                   />
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold shrink-0 cursor-pointer"
+                    disabled={isRunningAlloc}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shrink-0 cursor-pointer disabled:opacity-50"
                   >
-                    Phân bổ
+                    {isRunningAlloc ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang phân bổ...
+                      </>
+                    ) : (
+                      'Phân bổ'
+                    )}
                   </button>
                 </div>
               </div>
@@ -487,16 +537,24 @@ export const ExpensesPage: React.FC = () => {
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <button
                   type="button"
+                  disabled={isSubmittingExpense}
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 font-semibold"
+                  className="px-4 py-2 rounded-xl border border-slate-300 font-semibold disabled:opacity-50"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer"
+                  disabled={isSubmittingExpense}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Gửi đề xuất duyệt
+                  {isSubmittingExpense ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Đang gửi...
+                    </>
+                  ) : (
+                    'Gửi đề xuất duyệt'
+                  )}
                 </button>
               </div>
             </form>
