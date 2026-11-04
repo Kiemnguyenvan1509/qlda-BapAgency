@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, ArrowLeftRight, Lock, Trash2, Loader2 } from 'lucide-react';
+import { Plus, ArrowLeftRight, Lock, Trash2, Loader2, Wallet } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { Employee } from '../types/database';
 import { formatCurrency, formatDate, getTodayISO } from '../lib/format';
@@ -29,6 +29,20 @@ export const HrPage: React.FC = () => {
   const [tab, setTab] = useState<'employees' | 'org' | 'sale_kpi' | 'designer_kpi'>('employees');
   const [showAddEmp, setShowAddEmp] = useState(false);
   const [transferTarget, setTransferTarget] = useState<Employee | null>(null);
+  const [salaryTarget, setSalaryTarget] = useState<Employee | null>(null);
+  const [salaryForm, setSalaryForm] = useState<{
+    base_salary: number;
+    default_allowance: number;
+    salary_formula_type: 'standard_day' | 'fixed_month';
+    monthly_kpi_target: number;
+  }>({
+    base_salary: 0,
+    default_allowance: 0,
+    salary_formula_type: 'standard_day',
+    monthly_kpi_target: 0,
+  });
+  const [savingSalary, setSavingSalary] = useState(false);
+  const [salaryError, setSalaryError] = useState('');
   const [isCreatingEmp, setIsCreatingEmp] = useState(false);
   const creatingEmpLock = useRef(false);
   const [deletingEmpId, setDeletingEmpId] = useState<string | null>(null);
@@ -234,6 +248,24 @@ export const HrPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-1.5">
+                          {isAdmin && (
+                            <button
+                              onClick={() => {
+                                setSalaryError('');
+                                setSalaryTarget(emp);
+                                setSalaryForm({
+                                  base_salary: Number(emp.base_salary) || 0,
+                                  default_allowance: Number(emp.default_allowance) || 0,
+                                  salary_formula_type: emp.salary_formula_type || 'standard_day',
+                                  monthly_kpi_target: Number(emp.monthly_kpi_target) || 0,
+                                });
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold cursor-pointer"
+                              title="Điều chỉnh lương cơ bản & phụ cấp (Chỉ Admin)"
+                            >
+                              <Wallet className="w-3.5 h-3.5" /> Điều chỉnh lương
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setTransferTarget(emp);
@@ -768,6 +800,160 @@ export const HrPage: React.FC = () => {
                 className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold cursor-pointer"
               >
                 Xác nhận điều chuyển
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal điều chỉnh lương nhân sự (Chỉ Admin) */}
+      {isAdmin && salaryTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden p-6 space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-emerald-600" />
+                  Điều chỉnh lương & phụ cấp nhân sự
+                </h4>
+                <p className="text-slate-500 mt-0.5">
+                  Nhân sự: <strong className="text-indigo-600">[{salaryTarget.employee_code}] {salaryTarget.full_name}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSalaryTarget(null)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {salaryError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-semibold">
+                {salaryError}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Lương cơ bản (VNĐ / tháng) *
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={salaryForm.base_salary === 0 ? '' : salaryForm.base_salary}
+                  placeholder="0"
+                  onChange={(e) =>
+                    setSalaryForm({ ...salaryForm, base_salary: Math.max(0, Number(e.target.value) || 0) })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-900"
+                />
+                <div className="text-[11px] text-slate-500 mt-1">
+                  Hiển thị: <strong className="text-indigo-600">{formatCurrency(salaryForm.base_salary)}</strong>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Phụ cấp cố định mặc định (VNĐ / tháng)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={salaryForm.default_allowance === 0 ? '' : salaryForm.default_allowance}
+                  placeholder="0"
+                  onChange={(e) =>
+                    setSalaryForm({
+                      ...salaryForm,
+                      default_allowance: Math.max(0, Number(e.target.value) || 0),
+                    })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-semibold text-emerald-700"
+                />
+                <div className="text-[11px] text-slate-500 mt-1">
+                  Hiển thị: <strong className="text-emerald-700">{formatCurrency(salaryForm.default_allowance)}</strong>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Hình thức tính lương</label>
+                <select
+                  value={salaryForm.salary_formula_type}
+                  onChange={(e) =>
+                    setSalaryForm({
+                      ...salaryForm,
+                      salary_formula_type: e.target.value as 'standard_day' | 'fixed_month',
+                    })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-semibold"
+                >
+                  <option value="standard_day">Tính theo ngày công chuẩn (Lương CB / Công chuẩn × Công hưởng)</option>
+                  <option value="fixed_month">Lương cứng cố định tháng</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Chỉ tiêu KPI doanh thu tháng (VNĐ)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={salaryForm.monthly_kpi_target === 0 ? '' : salaryForm.monthly_kpi_target}
+                  placeholder="0"
+                  onChange={(e) =>
+                    setSalaryForm({
+                      ...salaryForm,
+                      monthly_kpi_target: Math.max(0, Number(e.target.value) || 0),
+                    })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                disabled={savingSalary}
+                onClick={() => setSalaryTarget(null)}
+                className="px-4 py-2 rounded-xl border border-slate-300 font-semibold cursor-pointer disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={savingSalary}
+                onClick={async () => {
+                  setSavingSalary(true);
+                  setSalaryError('');
+                  try {
+                    const res = await updateEmployee(salaryTarget.id, {
+                      base_salary: salaryForm.base_salary,
+                      default_allowance: salaryForm.default_allowance,
+                      salary_formula_type: salaryForm.salary_formula_type,
+                      monthly_kpi_target: salaryForm.monthly_kpi_target,
+                    });
+                    if (!res.ok) {
+                      setSalaryError(res.error || 'Không thể cập nhật mức lương.');
+                      return;
+                    }
+                    setSalaryTarget(null);
+                  } finally {
+                    setSavingSalary(false);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer disabled:opacity-50"
+              >
+                {savingSalary ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang lưu...
+                  </>
+                ) : (
+                  'Lưu điều chỉnh lương'
+                )}
               </button>
             </div>
           </div>

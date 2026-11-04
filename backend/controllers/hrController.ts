@@ -94,6 +94,19 @@ export class HrController {
     try {
       const id = String(req.params.id);
       const payload = req.body;
+      const isUpdatingSalary =
+        payload.base_salary !== undefined ||
+        payload.default_allowance !== undefined ||
+        payload.salary_formula_type !== undefined;
+
+      if (isUpdatingSalary && !(await isAdminActor(req))) {
+        res.status(403).json({
+          ok: false,
+          error: 'Chỉ tài khoản Admin mới có quyền điều chỉnh lương và phụ cấp của nhân sự.',
+        });
+        return;
+      }
+
       const oldEmp = await HrModel.getEmployeeById(id);
       const updated = await HrModel.updateEmployee(id, payload);
 
@@ -102,7 +115,14 @@ export class HrController {
         await HrModel.lockUserByEmployeeId(id);
       }
 
-      await SystemModel.writeAuditLog(req.actor, 'Nhân sự', 'Cập nhật hồ sơ nhân viên', id, oldEmp, payload);
+      await SystemModel.writeAuditLog(
+        req.actor,
+        'Nhân sự',
+        isUpdatingSalary ? 'Điều chỉnh mức lương & phụ cấp nhân sự' : 'Cập nhật hồ sơ nhân viên',
+        id,
+        oldEmp,
+        payload
+      );
       res.json({ ok: true, data: updated });
     } catch (err: unknown) {
       res.status(400).json({ ok: false, error: err instanceof Error ? err.message : 'Lỗi cập nhật nhân sự' });
