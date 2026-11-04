@@ -22,7 +22,10 @@ router.patch('/notifications/:id/read', SystemController.markNotificationRead);
 // 2. Auth & User Account Routes
 router.post('/auth/login', AuthController.login);
 router.post('/auth/bootstrap-admin', AuthController.bootstrapFirstAdmin);
+router.post('/auth/change-password', AuthController.changePassword);
 router.patch('/auth/users/:id/lock', AuthController.toggleUserLock);
+router.patch('/auth/users/:id/reset-password', AuthController.adminResetPassword);
+router.get('/auth/users/:id/password', AuthController.adminRevealPassword);
 
 // 3. Customer Routes
 router.post('/customers', CustomerController.create);

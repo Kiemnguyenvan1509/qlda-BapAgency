@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Database, Wifi, Trash2 } from 'lucide-react';
+import { Lock, Unlock, Database, Wifi, Trash2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { DataScope } from '../types/database';
 import { formatDateTime } from '../lib/format';
@@ -32,6 +32,8 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
     auditLogs,
     updateRoleConfig,
     toggleUserLock,
+    adminResetUserPassword,
+    adminGetUserPassword,
     saveSystemSetting,
   } = useErp();
 
@@ -39,6 +41,24 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
   const isAdmin = roleCode === 'super_admin' || roleCode === 'admin';
 
   const [tab, setTab] = useState<'rbac' | 'accounts' | 'catalogs' | 'audit'>('rbac');
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({});
+
+  const handleToggleRevealPassword = async (userId: string) => {
+    if (revealedPasswords[userId] !== undefined) {
+      setRevealedPasswords((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+      return;
+    }
+    const res = await adminGetUserPassword(userId);
+    if (res.ok && typeof res.password === 'string') {
+      setRevealedPasswords((prev) => ({ ...prev, [userId]: res.password || '' }));
+    } else {
+      window.alert(res.error || 'Không thể xem mật khẩu.');
+    }
+  };
   const [newStatus, setNewStatus] = useState('');
   const [newJobType, setNewJobType] = useState('');
   const [newOfficeIp, setNewOfficeIp] = useState('');
@@ -191,20 +211,45 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                 <th className="px-4 py-3">Tên đăng nhập</th>
                 <th className="px-4 py-3">Nhân sự liên kết</th>
                 <th className="px-4 py-3">Vai trò</th>
+                <th className="px-4 py-3">Mật khẩu hiện tại</th>
                 <th className="px-4 py-3">Đăng nhập gần nhất</th>
                 <th className="px-4 py-3">Trạng thái</th>
-                <th className="px-4 py-3 text-right">Khóa / Mở khóa</th>
+                <th className="px-4 py-3 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {users.map((u) => {
                 const emp = employees.find((e) => e.id === u.employee_id);
                 const role = roles.find((r) => r.id === u.role_id);
+                const revealed = revealedPasswords[u.id];
                 return (
                   <tr key={u.id}>
                     <td className="px-4 py-3 font-mono font-bold text-indigo-600">{u.username}</td>
                     <td className="px-4 py-3 font-semibold">{emp?.full_name || 'Quản trị viên'}</td>
                     <td className="px-4 py-3">{role?.name || 'Super Admin'}</td>
+                    <td className="px-4 py-3">
+                      <div className="inline-flex items-center gap-2">
+                        <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg">
+                          {revealed !== undefined ? revealed : '••••••••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleRevealPassword(u.id)}
+                          title={revealed !== undefined ? 'Ẩn mật khẩu' : 'Xem mật khẩu hiện tại'}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 font-semibold cursor-pointer"
+                        >
+                          {revealed !== undefined ? (
+                            <>
+                              <EyeOff className="w-3.5 h-3.5 text-slate-500" /> Ẩn
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3.5 h-3.5 text-indigo-600" /> Xem
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-4 py-3">{formatDateTime(u.last_login_at)}</td>
                     <td className="px-4 py-3">
                       {u.is_locked ? (
@@ -218,20 +263,42 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => toggleUserLock(u.id, !u.is_locked)}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-300 font-semibold cursor-pointer"
-                      >
-                        {u.is_locked ? (
-                          <>
-                            <Unlock className="w-3.5 h-3.5 text-emerald-600" /> Mở khóa
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="w-3.5 h-3.5 text-rose-600" /> Khóa tài khoản
-                          </>
-                        )}
-                      </button>
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            const newPass = window.prompt(
+                              `Nhập mật khẩu mới cho tài khoản "${u.username}" (${emp?.full_name || 'Quản trị viên'}):`
+                            );
+                            if (!newPass) return;
+                            const res = await adminResetUserPassword(u.id, newPass);
+                            if (res.ok) {
+                              if (revealedPasswords[u.id] !== undefined) {
+                                setRevealedPasswords((prev) => ({ ...prev, [u.id]: newPass }));
+                              }
+                              window.alert(`Đã cấp lại mật khẩu mới cho tài khoản "${u.username}".`);
+                            } else {
+                              window.alert(res.error || 'Không thể đặt lại mật khẩu.');
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold cursor-pointer"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" /> Đặt lại mật khẩu
+                        </button>
+                        <button
+                          onClick={() => toggleUserLock(u.id, !u.is_locked)}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-slate-300 font-semibold cursor-pointer"
+                        >
+                          {u.is_locked ? (
+                            <>
+                              <Unlock className="w-3.5 h-3.5 text-emerald-600" /> Mở khóa
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-3.5 h-3.5 text-rose-600" /> Khóa tài khoản
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

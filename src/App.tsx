@@ -15,6 +15,7 @@ import {
   Bell,
   Database,
   LogOut,
+  KeyRound,
   CheckCircle2,
   Menu,
   RefreshCw,
@@ -76,6 +77,7 @@ const MainShell: React.FC = () => {
     currentRole,
     notifications,
     markNotificationRead,
+    changeMyPassword,
     logout,
   } = useErp();
 
@@ -84,6 +86,42 @@ const MainShell: React.FC = () => {
   const [showSupabaseModal, setShowSupabaseModal] = useState(false);
   const [showExcelModal, setShowExcelModal] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [showChangePwdModal, setShowChangePwdModal] = useState(false);
+  const [oldPwd, setOldPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSuccess, setPwdSuccess] = useState('');
+  const [pwdLoading, setPwdLoading] = useState(false);
+
+  const handleSelfPasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdError('');
+    setPwdSuccess('');
+    if (!oldPwd || !newPwd) {
+      setPwdError('Vui lòng nhập mật khẩu hiện tại và mật khẩu mới.');
+      return;
+    }
+    if (newPwd.trim().length < 4) {
+      setPwdError('Mật khẩu mới phải có ít nhất 4 ký tự.');
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      setPwdError('Xác nhận mật khẩu mới không khớp.');
+      return;
+    }
+    setPwdLoading(true);
+    const res = await changeMyPassword(oldPwd, newPwd);
+    setPwdLoading(false);
+    if (!res.ok) {
+      setPwdError(res.error || 'Không thể đổi mật khẩu.');
+      return;
+    }
+    setPwdSuccess('Đổi mật khẩu thành công!');
+    setOldPwd('');
+    setNewPwd('');
+    setConfirmPwd('');
+  };
 
   const roleCode = currentRole?.code || currentEmployee?.role_code || '';
   const isAdmin = roleCode === 'super_admin' || roleCode === 'admin';
@@ -302,7 +340,7 @@ const MainShell: React.FC = () => {
               )}
             </div>
 
-            {/* Thông tin tài khoản & Đăng xuất */}
+            {/* Thông tin tài khoản, Đổi mật khẩu & Đăng xuất */}
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200 text-xs">
               <div className="text-right hidden md:block">
                 <div className="font-bold text-slate-900">
@@ -310,6 +348,20 @@ const MainShell: React.FC = () => {
                 </div>
                 <div className="text-[11px] text-slate-500">{currentRole?.name}</div>
               </div>
+              <button
+                onClick={() => {
+                  setPwdError('');
+                  setPwdSuccess('');
+                  setOldPwd('');
+                  setNewPwd('');
+                  setConfirmPwd('');
+                  setShowChangePwdModal(true);
+                }}
+                title="Đổi mật khẩu cá nhân"
+                className="p-2 rounded-xl border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 cursor-pointer"
+              >
+                <KeyRound className="w-4 h-4" />
+              </button>
               <button
                 onClick={logout}
                 title="Đăng xuất"
@@ -339,6 +391,95 @@ const MainShell: React.FC = () => {
           )}
         </main>
       </div>
+
+      {/* Modal Đổi mật khẩu cá nhân */}
+      {showChangePwdModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden p-6 space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-indigo-600" />
+                  Đổi mật khẩu tài khoản
+                </h3>
+                <p className="text-slate-500 mt-0.5">
+                  Tài khoản: <strong className="text-indigo-600">{currentUser?.username}</strong> (
+                  {currentEmployee?.full_name || 'Quản trị viên'})
+                </p>
+              </div>
+              <button
+                onClick={() => setShowChangePwdModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {pwdError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-semibold">
+                {pwdError}
+              </div>
+            )}
+            {pwdSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold">
+                {pwdSuccess}
+              </div>
+            )}
+
+            <form onSubmit={handleSelfPasswordChange} className="space-y-3">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Mật khẩu hiện tại *</label>
+                <input
+                  type="password"
+                  value={oldPwd}
+                  onChange={(e) => setOldPwd(e.target.value)}
+                  placeholder="Nhập mật khẩu đang sử dụng"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Mật khẩu mới *</label>
+                <input
+                  type="password"
+                  value={newPwd}
+                  onChange={(e) => setNewPwd(e.target.value)}
+                  placeholder="Tối thiểu 4 ký tự"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Xác nhận mật khẩu mới *</label>
+                <input
+                  type="password"
+                  value={confirmPwd}
+                  onChange={(e) => setConfirmPwd(e.target.value)}
+                  placeholder="Nhập lại mật khẩu mới"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePwdModal(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 font-semibold cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={pwdLoading}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  {pwdLoading ? 'Đang cập nhật...' : 'Lưu mật khẩu mới'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <SupabaseSetupModal isOpen={showSupabaseModal} onClose={() => setShowSupabaseModal(false)} />

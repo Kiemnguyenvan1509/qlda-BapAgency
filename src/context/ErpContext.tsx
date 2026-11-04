@@ -200,6 +200,17 @@ interface ErpContextValue {
     reason: string
   ) => Promise<{ ok: boolean; error?: string }>;
   toggleUserLock: (userId: string, isLocked: boolean) => Promise<void>;
+  changeMyPassword: (
+    currentPassword: string,
+    newPassword: string
+  ) => Promise<{ ok: boolean; error?: string }>;
+  adminResetUserPassword: (
+    userId: string,
+    newPassword: string
+  ) => Promise<{ ok: boolean; error?: string }>;
+  adminGetUserPassword: (
+    userId: string
+  ) => Promise<{ ok: boolean; password?: string; error?: string }>;
 
   checkInAttendance: (
     employeeId: string,
@@ -988,6 +999,30 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await refreshAll();
   };
 
+  const changeMyPassword = async (currentPassword: string, newPassword: string) => {
+    const res = await apiRequest('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ userId: currentUser?.id, currentPassword, newPassword }),
+    });
+    if (res.ok) await refreshAll();
+    return res;
+  };
+
+  const adminResetUserPassword = async (userId: string, newPassword: string) => {
+    const res = await apiRequest(`/auth/users/${userId}/reset-password`, {
+      method: 'PATCH',
+      body: JSON.stringify({ newPassword }),
+    });
+    if (res.ok) await refreshAll();
+    return res;
+  };
+
+  const adminGetUserPassword = async (userId: string) => {
+    return apiRequest(`/auth/users/${userId}/password`, {
+      method: 'GET',
+    });
+  };
+
   // ======================== ATTENDANCE & PAYROLL CONTROLLER CALLS ========================
   const checkInAttendance = async (
     employeeId: string,
@@ -1224,6 +1259,9 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteEmployee,
         transferEmployee,
         toggleUserLock,
+        changeMyPassword,
+        adminResetUserPassword,
+        adminGetUserPassword,
         checkInAttendance,
         checkOutAttendance,
         submitAttendanceExplanation,

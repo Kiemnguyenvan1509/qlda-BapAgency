@@ -184,6 +184,11 @@ export class SystemController {
         }
       }
 
+      const safeUsers = users.map((u: Record<string, unknown>) => ({
+        ...u,
+        password_hash: undefined,
+      }));
+
       res.json({
         ok: true,
         data: {
@@ -193,7 +198,7 @@ export class SystemController {
           teams,
           shifts,
           employees,
-          users,
+          users: safeUsers,
           employeeTransfers,
           customers,
           customerCareLogs,

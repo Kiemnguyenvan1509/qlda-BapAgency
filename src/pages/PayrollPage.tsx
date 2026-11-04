@@ -9,8 +9,11 @@ export const PayrollPage: React.FC = () => {
     payrolls,
     payrollDetails,
     employees,
+    currentEmployee,
+    currentRole,
     standardWorkDays,
     canAction,
+    isFieldHidden,
     generateMonthlyPayroll,
     updatePayrollDetailItem,
     changePayrollStatus,
@@ -22,9 +25,23 @@ export const PayrollPage: React.FC = () => {
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollDetail | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const canManagePayroll =
+    canAction('payroll', 'edit') ||
+    currentRole?.code === 'super_admin' ||
+    currentRole?.code === 'admin' ||
+    currentRole?.code === 'director' ||
+    currentRole?.code === 'accountant';
+
+  const canSeeOtherSalary = canManagePayroll && !isFieldHidden('other_salary');
+
   const currentPayroll = payrolls.find((p) => p.month === month && p.year === year);
-  const details = payrollDetails.filter((d) => d.payroll_id === currentPayroll?.id);
+  const details = payrollDetails.filter(
+    (d) =>
+      d.payroll_id === currentPayroll?.id &&
+      (canSeeOtherSalary || d.employee_id === currentEmployee?.id)
+  );
   const isLocked = currentPayroll?.status === 'Đã khóa';
+  const isReadOnlyRow = isLocked || !canManagePayroll;
 
   const handleGenerate = async () => {
     setErrorMsg('');
@@ -55,22 +72,26 @@ export const PayrollPage: React.FC = () => {
             onChange={(e) => setYear(Number(e.target.value))}
             className="w-24 px-3 py-2 rounded-xl border border-slate-300 font-semibold"
           />
-          <span className="text-slate-500 ml-2">Công chuẩn:</span>
-          <input
-            type="number"
-            placeholder="26"
-            value={stdDays === 0 ? '' : stdDays}
-            onChange={(e) => setStdDays(Number(e.target.value))}
-            className="w-16 px-2.5 py-2 rounded-xl border border-slate-300 text-center font-bold"
-          />
+          {canManagePayroll && (
+            <>
+              <span className="text-slate-500 ml-2">Công chuẩn:</span>
+              <input
+                type="number"
+                placeholder="26"
+                value={stdDays === 0 ? '' : stdDays}
+                onChange={(e) => setStdDays(Number(e.target.value))}
+                className="w-16 px-2.5 py-2 rounded-xl border border-slate-300 text-center font-bold"
+              />
 
-          <button
-            onClick={handleGenerate}
-            disabled={isLocked}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer disabled:opacity-40"
-          >
-            <Calculator className="w-4 h-4" /> Tổng hợp tự động từ Bảng công
-          </button>
+              <button
+                onClick={handleGenerate}
+                disabled={isLocked}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer disabled:opacity-40"
+              >
+                <Calculator className="w-4 h-4" /> Tổng hợp tự động từ Bảng công
+              </button>
+            </>
+          )}
         </div>
 
         {currentPayroll && (
@@ -171,8 +192,14 @@ export const PayrollPage: React.FC = () => {
               {details.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-4 py-10 text-center text-slate-400">
-                    Chưa có bảng lương cho Tháng {month}/{year}. Hãy nhấn{' '}
-                    <strong>"Tổng hợp tự động từ Bảng công"</strong> để tạo.
+                    {canManagePayroll ? (
+                      <>
+                        Chưa có bảng lương cho Tháng {month}/{year}. Hãy nhấn{' '}
+                        <strong>"Tổng hợp tự động từ Bảng công"</strong> để tạo.
+                      </>
+                    ) : (
+                      <>Chưa có phiếu lương cá nhân của bạn cho Tháng {month}/{year}.</>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -192,7 +219,7 @@ export const PayrollPage: React.FC = () => {
                         <input
                           type="number"
                           placeholder="0"
-                          disabled={isLocked}
+                          disabled={isReadOnlyRow}
                           value={d.allowance === 0 ? '' : d.allowance}
                           onChange={(e) =>
                             updatePayrollDetailItem(d.id, { allowance: Number(e.target.value) })
@@ -204,7 +231,7 @@ export const PayrollPage: React.FC = () => {
                         <input
                           type="number"
                           placeholder="0"
-                          disabled={isLocked}
+                          disabled={isReadOnlyRow}
                           value={d.bonus === 0 ? '' : d.bonus}
                           onChange={(e) => updatePayrollDetailItem(d.id, { bonus: Number(e.target.value) })}
                           className="w-24 px-2 py-1 text-right rounded border border-slate-300 bg-white disabled:bg-slate-100"
@@ -217,7 +244,7 @@ export const PayrollPage: React.FC = () => {
                         <input
                           type="number"
                           placeholder="0"
-                          disabled={isLocked}
+                          disabled={isReadOnlyRow}
                           value={d.valid_deductions === 0 ? '' : d.valid_deductions}
                           onChange={(e) =>
                             updatePayrollDetailItem(d.id, { valid_deductions: Number(e.target.value) })
@@ -229,7 +256,7 @@ export const PayrollPage: React.FC = () => {
                         <input
                           type="number"
                           placeholder="0"
-                          disabled={isLocked}
+                          disabled={isReadOnlyRow}
                           value={d.advance_amount === 0 ? '' : d.advance_amount}
                           onChange={(e) =>
                             updatePayrollDetailItem(d.id, { advance_amount: Number(e.target.value) })

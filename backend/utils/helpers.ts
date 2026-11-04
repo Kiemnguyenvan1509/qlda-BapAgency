@@ -1,5 +1,77 @@
+import crypto from 'crypto';
 import { Request } from 'express';
 import { HrModel } from '../models/HrModel';
+
+const AES_SECRET_KEY = crypto
+  .createHash('sha256')
+  .update(String(process.env.PASSWORD_SECRET || 'bapagency-erp-aes256-master-key-2026'))
+  .digest();
+
+export function hashPassword(plain: string): string {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', AES_SECRET_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return `aes$${iv.toString('hex')}$${authTag.toString('hex')}$${encrypted.toString('hex')}`;
+}
+
+export function decryptPasswordForAdmin(stored: string): string {
+  const rawStored = String(stored || '');
+  if (!rawStored) return '';
+  if (rawStored.startsWith('aes$')) {
+    try {
+      const parts = rawStored.split('$');
+      if (parts.length !== 4) return '(Lỗi định dạng mã hóa)';
+      const [, ivHex, tagHex, encryptedHex] = parts;
+      const decipher = crypto.createDecipheriv(
+        'aes-256-gcm',
+        AES_SECRET_KEY,
+        Buffer.from(ivHex, 'hex')
+      );
+      decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+      const decrypted = Buffer.concat([
+        decipher.update(Buffer.from(encryptedHex, 'hex')),
+        decipher.final(),
+      ]);
+      return decrypted.toString('utf8');
+    } catch {
+      return '(Không thể giải mã)';
+    }
+  }
+  if (rawStored.startsWith('scrypt$')) {
+    return '(Đã băm 1 chiều - Bấm Đặt lại mật khẩu hoặc đăng nhập lại để đồng bộ)';
+  }
+  return rawStored;
+}
+
+export function verifyPassword(
+  plain: string,
+  stored: string
+): { valid: boolean; needsRehash: boolean } {
+  const rawStored = String(stored || '');
+  if (rawStored.startsWith('aes$')) {
+    const decrypted = decryptPasswordForAdmin(rawStored);
+    return {
+      valid: decrypted === String(plain),
+      needsRehash: false,
+    };
+  }
+  if (rawStored.startsWith('scrypt$')) {
+    const parts = rawStored.split('$');
+    if (parts.length !== 3) return { valid: false, needsRehash: false };
+    const [, salt, hashHex] = parts;
+    const derived = crypto.scryptSync(String(plain), salt, 64);
+    const storedBuf = Buffer.from(hashHex, 'hex');
+    if (derived.length !== storedBuf.length) return { valid: false, needsRehash: false };
+    const isValid = crypto.timingSafeEqual(derived, storedBuf);
+    return {
+      valid: isValid,
+      needsRehash: isValid,
+    };
+  }
+  const matchesPlain = rawStored === String(plain);
+  return { valid: matchesPlain, needsRehash: matchesPlain };
+}
 
 export function getTodayISO(): string {
   const now = new Date();
@@ -83,4 +155,19 @@ export async function verifySelfOrAdmin(req: Request, targetEmployeeId: string):
     return 'Bạn chỉ được phép chấm công cho chính mình. Chỉ Admin mới có quyền chấm công cho nhân sự khác.';
   }
   return null;
+}
+
+export async function canManagePayrollActor(req: Request): Promise<boolean> {
+  if (await isAdminActor(req)) return true;
+  if (!req.actor?.userId) return false;
+  const actorUser = await HrModel.getUserById(req.actor.userId);
+  if (!actorUser || !actorUser.employee_id) return false;
+  const actorEmp = await HrModel.getEmployeeById(actorUser.employee_id);
+  if (!actorEmp) return false;
+  return (
+    actorEmp.role_code === 'super_admin' ||
+    actorEmp.role_code === 'admin' ||
+    actorEmp.role_code === 'director' ||
+    actorEmp.role_code === 'accountant'
+  );
 }

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { HrModel } from '../models/HrModel';
 import { AttendancePayrollModel } from '../models/AttendancePayrollModel';
 import { SystemModel } from '../models/SystemModel';
-import { generateSeqCode, getTodayISO, isAdminActor } from '../utils/helpers';
+import { generateSeqCode, getTodayISO, hashPassword, isAdminActor } from '../utils/helpers';
 
 export class HrController {
   static async createDepartment(req: Request, res: Response) {
@@ -76,7 +76,7 @@ export class HrController {
         await HrModel.createUser({
           username: accountPayload.username.trim(),
           email: payload.email || null,
-          password_hash: accountPayload.password,
+          password_hash: hashPassword(String(accountPayload.password)),
           employee_id: emp.id,
           role_id: accountPayload.roleId || null,
           is_locked: false,

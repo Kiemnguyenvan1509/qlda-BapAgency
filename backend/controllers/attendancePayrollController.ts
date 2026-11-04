@@ -3,7 +3,7 @@ import dns from 'dns/promises';
 import { AttendancePayrollModel } from '../models/AttendancePayrollModel';
 import { HrModel } from '../models/HrModel';
 import { SystemModel } from '../models/SystemModel';
-import { extractClientIp, getTodayISO, verifySelfOrAdmin } from '../utils/helpers';
+import { canManagePayrollActor, extractClientIp, getTodayISO, verifySelfOrAdmin } from '../utils/helpers';
 
 export class AttendancePayrollController {
   private static async getAllowedOfficeIps(): Promise<string[]> {
@@ -339,6 +339,14 @@ export class AttendancePayrollController {
 
   static async generatePayroll(req: Request, res: Response) {
     try {
+      if (!(await canManagePayrollActor(req))) {
+        res.status(403).json({
+          ok: false,
+          error: 'Chỉ Admin, Giám đốc hoặc Kế toán mới có quyền tổng hợp bảng lương.',
+        });
+        return;
+      }
+
       const month = Number(req.body.month);
       const year = Number(req.body.year);
       const standardDays = Number(req.body.standardDays || 26);
@@ -462,6 +470,14 @@ export class AttendancePayrollController {
 
   static async updatePayrollDetail(req: Request, res: Response) {
     try {
+      if (!(await canManagePayrollActor(req))) {
+        res.status(403).json({
+          ok: false,
+          error: 'Chỉ Admin, Giám đốc hoặc Kế toán mới có quyền điều chỉnh phiếu lương.',
+        });
+        return;
+      }
+
       const id = String(req.params.id);
       const payload = req.body;
       const oldItem = await AttendancePayrollModel.getPayrollDetailById(id);
@@ -505,6 +521,14 @@ export class AttendancePayrollController {
 
   static async changePayrollStatus(req: Request, res: Response) {
     try {
+      if (!(await canManagePayrollActor(req))) {
+        res.status(403).json({
+          ok: false,
+          error: 'Chỉ Admin, Giám đốc hoặc Kế toán mới có quyền duyệt hoặc khóa bảng lương.',
+        });
+        return;
+      }
+
       const id = String(req.params.id);
       const { newStatus, unlockReason } = req.body;
       const oldPayroll = await AttendancePayrollModel.getPayrollById(id);
