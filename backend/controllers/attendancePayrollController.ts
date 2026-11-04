@@ -3,7 +3,13 @@ import dns from 'dns/promises';
 import { AttendancePayrollModel } from '../models/AttendancePayrollModel';
 import { HrModel } from '../models/HrModel';
 import { SystemModel } from '../models/SystemModel';
-import { canManagePayrollActor, extractClientIp, getTodayISO, verifySelfOrAdmin } from '../utils/helpers';
+import {
+  canManagePayrollActor,
+  extractClientIp,
+  getTodayISO,
+  getVietnamMinutesOfDay,
+  verifySelfOrAdmin,
+} from '../utils/helpers';
 
 export class AttendancePayrollController {
   private static async getAllowedOfficeIps(): Promise<string[]> {
@@ -73,10 +79,20 @@ export class AttendancePayrollController {
         return;
       }
 
-      const [emp, shifts] = await Promise.all([
+      const [emp, shifts, existingToday] = await Promise.all([
         HrModel.getEmployeeById(employeeId),
         AttendancePayrollModel.getShifts(),
+        AttendancePayrollModel.getAttendanceByEmployeeAndDate(employeeId, getTodayISO()),
       ]);
+
+      if (existingToday) {
+        res.status(400).json({
+          ok: false,
+          error: 'Mỗi nhân sự chỉ được Check-in 1 lần trong ngày. Hôm nay đã ghi nhận Check-in rồi!',
+        });
+        return;
+      }
+
       const shift = shifts.find((s) => s.id === emp?.shift_id) || shifts[0];
       const now = new Date();
       const today = getTodayISO();
@@ -84,9 +100,9 @@ export class AttendancePayrollController {
       let lateMinutes = 0;
       if (shift) {
         const [sh, sm] = String(shift.start_time).split(':').map(Number);
-        const shiftStart = new Date(now);
-        shiftStart.setHours(sh || 8, sm || 30, 0, 0);
-        const diffMins = Math.floor((now.getTime() - shiftStart.getTime()) / 60000);
+        const shiftStartMins = (Number.isFinite(sh) ? sh : 8) * 60 + (Number.isFinite(sm) ? sm : 30);
+        const currentVnMins = getVietnamMinutesOfDay(now);
+        const diffMins = currentVnMins - shiftStartMins;
         if (diffMins > (Number(shift.grace_late_minutes) || 0)) {
           lateMinutes = diffMins;
         }
@@ -130,6 +146,14 @@ export class AttendancePayrollController {
         return;
       }
 
+      if (rec.check_out) {
+        res.status(400).json({
+          ok: false,
+          error: 'Mỗi nhân sự chỉ được Check-out 1 lần trong ngày. Ca làm việc hôm nay đã được Check-out rồi!',
+        });
+        return;
+      }
+
       const permError = await verifySelfOrAdmin(req, rec.employee_id);
       if (permError) {
         res.status(403).json({ ok: false, error: permError });
@@ -154,9 +178,9 @@ export class AttendancePayrollController {
       let earlyLeaveMinutes = 0;
       if (shift) {
         const [eh, em] = String(shift.end_time).split(':').map(Number);
-        const shiftEnd = new Date(now);
-        shiftEnd.setHours(eh || 17, em || 30, 0, 0);
-        const diffMins = Math.floor((shiftEnd.getTime() - now.getTime()) / 60000);
+        const shiftEndMins = (Number.isFinite(eh) ? eh : 17) * 60 + (Number.isFinite(em) ? em : 30);
+        const currentVnMins = getVietnamMinutesOfDay(now);
+        const diffMins = shiftEndMins - currentVnMins;
         if (diffMins > 0) earlyLeaveMinutes = diffMins;
       }
 

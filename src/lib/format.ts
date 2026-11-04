@@ -40,9 +40,8 @@ export function formatDateTime(dateStr?: string | null): string {
 }
 
 export function getTodayISO(): string {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime() - offset).toISOString().split('T')[0];
+  const vnTime = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  return vnTime.toISOString().split('T')[0];
 }
 
 export function generateCode(prefix: string, existingCount: number): string {

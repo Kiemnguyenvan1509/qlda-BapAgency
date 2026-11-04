@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Clock, Download, Wifi, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { LeaveRequest, OvertimeRequest } from '../types/database';
@@ -35,6 +35,8 @@ export const AttendancePage: React.FC = () => {
   const [selectedEmpId, setSelectedEmpId] = useState<string>(currentEmployee?.id || employees[0]?.id || '');
   const [statusMsg, setStatusMsg] = useState('');
   const [statusIsError, setStatusIsError] = useState(false);
+  const [isSubmittingAtt, setIsSubmittingAtt] = useState(false);
+  const attSubmittingLock = useRef(false);
 
   // Bộ lọc tháng cho Bảng tổng hợp chấm công (Mục 8.6)
   const [sumMonth, setSumMonth] = useState<number>(new Date().getMonth() + 1);
@@ -78,7 +80,9 @@ export const AttendancePage: React.FC = () => {
     ? selectedEmpId || currentEmployee?.id || employees[0]?.id || ''
     : currentEmployee?.id || '';
   const today = getTodayISO();
-  const todayRec = attendance.find((a) => a.employee_id === activeEmpId && a.work_date === today);
+  const todayRec = attendance.find(
+    (a) => a.employee_id === activeEmpId && String(a.work_date).slice(0, 10) === today
+  );
   const isIpMatched = officeAllowedIps.length === 0 || (Boolean(currentClientIp) && officeAllowedIps.includes(currentClientIp));
 
   // Tổng hợp bảng công tháng (Mục 8.6)
@@ -165,30 +169,47 @@ export const AttendancePage: React.FC = () => {
 
             {!todayRec ? (
               <button
+                disabled={isSubmittingAtt}
                 onClick={async () => {
-                  if (!activeEmpId) return;
-                  const res = await checkInAttendance(activeEmpId, 'Web');
-                  setStatusIsError(!res.ok);
-                  setStatusMsg(res.ok ? 'Đã Check-in vào ca thành công!' : res.error || '');
+                  if (!activeEmpId || attSubmittingLock.current || isSubmittingAtt) return;
+                  attSubmittingLock.current = true;
+                  setIsSubmittingAtt(true);
+                  try {
+                    const res = await checkInAttendance(activeEmpId, 'Web');
+                    setStatusIsError(!res.ok);
+                    setStatusMsg(res.ok ? 'Đã Check-in vào ca thành công! (1/1 lần trong ngày)' : res.error || '');
+                  } finally {
+                    attSubmittingLock.current = false;
+                    setIsSubmittingAtt(false);
+                  }
                 }}
-                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-50"
               >
-                Check-in Vào Ca
+                {isSubmittingAtt ? 'Đang xử lý...' : 'Check-in Vào Ca (1 lần/ngày)'}
               </button>
             ) : !todayRec.check_out ? (
               <button
+                disabled={isSubmittingAtt}
                 onClick={async () => {
-                  const res = await checkOutAttendance(todayRec.id);
-                  setStatusIsError(!res.ok);
-                  setStatusMsg(res.ok ? 'Đã Check-out kết thúc ca!' : res.error || '');
+                  if (attSubmittingLock.current || isSubmittingAtt) return;
+                  attSubmittingLock.current = true;
+                  setIsSubmittingAtt(true);
+                  try {
+                    const res = await checkOutAttendance(todayRec.id);
+                    setStatusIsError(!res.ok);
+                    setStatusMsg(res.ok ? 'Đã Check-out kết thúc ca! (Hoàn tất 1/1 lần trong ngày)' : res.error || '');
+                  } finally {
+                    attSubmittingLock.current = false;
+                    setIsSubmittingAtt(false);
+                  }
                 }}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer disabled:opacity-50"
               >
-                Check-out Ra Ca
+                {isSubmittingAtt ? 'Đang xử lý...' : 'Check-out Ra Ca (1 lần/ngày)'}
               </button>
             ) : (
               <span className="px-3 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 font-semibold">
-                Đã hoàn tất Check-in & Check-out hôm nay
+                Đã hoàn tất Check-in & Check-out hôm nay (Tối đa 1 lần/ngày)
               </span>
             )}
           </div>

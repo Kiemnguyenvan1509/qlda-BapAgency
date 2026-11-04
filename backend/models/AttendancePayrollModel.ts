@@ -29,6 +29,18 @@ export class AttendancePayrollModel {
     return data;
   }
 
+  static async getAttendanceByEmployeeAndDate(employeeId: string, workDate: string) {
+    const db = requireSupabaseDb();
+    const { data, error } = await db
+      .from('attendance')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .eq('work_date', workDate)
+      .limit(1);
+    if (error) throw error;
+    return Array.isArray(data) && data.length > 0 ? data[0] : null;
+  }
+
   static async createAttendance(payload: Record<string, unknown>) {
     const db = requireSupabaseDb();
     const { data, error } = await db.from('attendance').insert(payload).select('*').single();

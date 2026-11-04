@@ -74,9 +74,14 @@ export function verifyPassword(
 }
 
 export function getTodayISO(): string {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime() - offset).toISOString().split('T')[0];
+  // Luôn lấy ngày theo múi giờ Việt Nam (UTC+7 - Asia/Ho_Chi_Minh), bất kể Server đặt ở đâu (Render UTC+0)
+  const vnTime = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  return vnTime.toISOString().split('T')[0];
+}
+
+export function getVietnamMinutesOfDay(date: Date = new Date()): number {
+  const vnTime = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+  return vnTime.getUTCHours() * 60 + vnTime.getUTCMinutes();
 }
 
 export function extractClientIp(req: Request, clientPublicIp?: string): string {
