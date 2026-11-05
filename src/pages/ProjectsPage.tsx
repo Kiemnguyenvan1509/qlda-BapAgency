@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Plus,
   Search,
@@ -20,6 +20,48 @@ import { ProjectDetailModal } from '../components/ProjectDetailModal';
 interface Props {
   onOpenExcelImport: () => void;
 }
+
+// Ô ghi chú sửa nhanh: tự lưu khi rời khỏi ô nhập (blur), có loading chống thao tác lặp
+const ProjectNoteCell: React.FC<{
+  value: string;
+  onSave: (next: string) => Promise<{ ok: boolean; error?: string }>;
+}> = ({ value, onSave }) => {
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  const commit = async () => {
+    if (saving || draft === value) return;
+    setSaving(true);
+    try {
+      const res = await onSave(draft);
+      if (!res.ok) {
+        window.alert(res.error || 'Không thể lưu ghi chú.');
+        setDraft(value);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="relative min-w-[180px]">
+      <textarea
+        rows={2}
+        value={draft}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        placeholder="Nhập ghi chú..."
+        className="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white resize-y disabled:opacity-60"
+      />
+      {saving && <Loader2 className="absolute right-2 top-2 w-3.5 h-3.5 animate-spin text-indigo-600" />}
+    </div>
+  );
+};
 
 export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
   const {
@@ -64,6 +106,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
     paidAndDebt: true,
     deadline: true,
     progress: true,
+    notes: true,
   });
 
   // Modal tạo dự án mới
@@ -285,6 +328,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                     paidAndDebt: 'Thực thu & Công nợ',
                     deadline: 'Deadline',
                     progress: 'Tiến độ %',
+                    notes: 'Ghi chú',
                   }).map(([k, label]) => (
                     <label key={k} className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -436,13 +480,14 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                     </span>
                   </th>
                 )}
+                {visibleCols.notes && <th className="px-3 py-3 font-bold">Ghi chú</th>}
                 <th className="px-3 py-3 font-bold text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {pagedProjects.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={14} className="px-4 py-10 text-center text-slate-400">
                     Chưa có dự án nào. Hãy nhấn <strong>"Thêm dự án mới"</strong> hoặc <strong>"Nhập Excel"</strong> để
                     bắt đầu làm việc với dữ liệu thật.
                   </td>
@@ -546,6 +591,14 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                           {isOverdue && (
                             <span className="block text-[10px] font-bold text-rose-600 uppercase">Quá hạn!</span>
                           )}
+                        </td>
+                      )}
+                      {visibleCols.notes && (
+                        <td className="px-3 py-2.5">
+                          <ProjectNoteCell
+                            value={p.notes || ''}
+                            onSave={(next) => updateProject(p.id, { notes: next }, 'Cập nhật ghi chú dự án')}
+                          />
                         </td>
                       )}
                       <td className="px-3 py-2.5 text-right whitespace-nowrap">
