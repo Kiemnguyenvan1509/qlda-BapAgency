@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Plus, ArrowLeftRight, Lock, Trash2, Loader2, Wallet } from 'lucide-react';
+import { Plus, ArrowLeftRight, Lock, Trash2, Loader2, Wallet, Pencil } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { Employee } from '../types/database';
 import { formatCurrency, formatDate, getTodayISO } from '../lib/format';
@@ -50,6 +50,75 @@ export const HrPage: React.FC = () => {
   const creatingEmpLock = useRef(false);
   const [deletingEmpId, setDeletingEmpId] = useState<string | null>(null);
   const [empError, setEmpError] = useState('');
+
+  // Sửa thông tin hồ sơ nhân viên
+  const [editTarget, setEditTarget] = useState<Employee | null>(null);
+  const [editForm, setEditForm] = useState({
+    full_name: '',
+    birth_date: '',
+    phone: '',
+    email: '',
+    address: '',
+    position: '',
+    role_code: '',
+    shift_id: '',
+    hire_date: '',
+    contract_type: '',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  const openEditEmployee = (emp: Employee) => {
+    setEditError('');
+    setEditTarget(emp);
+    setEditForm({
+      full_name: emp.full_name || '',
+      birth_date: emp.birth_date ? String(emp.birth_date).slice(0, 10) : '',
+      phone: emp.phone || '',
+      email: emp.email || '',
+      address: emp.address || '',
+      position: emp.position || '',
+      role_code: emp.role_code || '',
+      shift_id: emp.shift_id || '',
+      hire_date: emp.hire_date ? String(emp.hire_date).slice(0, 10) : '',
+      contract_type: emp.contract_type || 'Chính thức',
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget || savingEdit) return;
+    if (!editForm.full_name.trim()) {
+      setEditError('Họ tên không được để trống.');
+      return;
+    }
+    setSavingEdit(true);
+    setEditError('');
+    try {
+      const payload: Partial<Employee> = {
+        full_name: editForm.full_name.trim(),
+        birth_date: editForm.birth_date || null,
+        phone: editForm.phone.trim(),
+        email: editForm.email.trim(),
+        address: editForm.address.trim(),
+        position: editForm.position.trim(),
+        shift_id: editForm.shift_id || null,
+        hire_date: editForm.hire_date || editTarget.hire_date,
+        contract_type: editForm.contract_type,
+      };
+      // Chỉ Admin được đổi vai trò hệ thống, và chỉ gửi khi có thay đổi
+      if (isAdmin && editForm.role_code && editForm.role_code !== editTarget.role_code) {
+        payload.role_code = editForm.role_code;
+      }
+      const res = await updateEmployee(editTarget.id, payload);
+      if (!res.ok) {
+        setEditError(res.error || 'Không thể cập nhật hồ sơ nhân viên.');
+        return;
+      }
+      setEditTarget(null);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const effectiveRoleCode = currentRole?.code || currentEmployee?.role_code || 'super_admin';
   const isAdmin = effectiveRoleCode === 'super_admin' || effectiveRoleCode === 'admin';
@@ -251,6 +320,13 @@ export const HrPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => openEditEmployee(emp)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold cursor-pointer"
+                            title="Sửa thông tin hồ sơ nhân viên"
+                          >
+                            <Pencil className="w-3.5 h-3.5" /> Sửa hồ sơ
+                          </button>
                           {isAdmin && (
                             <button
                               onClick={() => {
@@ -994,6 +1070,183 @@ export const HrPage: React.FC = () => {
                   </>
                 ) : (
                   'Lưu điều chỉnh lương'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal sửa thông tin hồ sơ nhân viên */}
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                  <Pencil className="w-4 h-4 text-amber-600" />
+                  Sửa thông tin hồ sơ nhân viên
+                </h4>
+                <p className="text-slate-500 mt-0.5">
+                  Mã NV: <strong className="text-indigo-600">{editTarget.employee_code}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={savingEdit}
+                onClick={() => setEditTarget(null)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            {editError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-semibold">
+                {editError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Họ và tên *</label>
+                <input
+                  type="text"
+                  value={editForm.full_name}
+                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Ngày sinh</label>
+                <input
+                  type="date"
+                  value={editForm.birth_date}
+                  onChange={(e) => setEditForm({ ...editForm, birth_date: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Số điện thoại</label>
+                <input
+                  type="text"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block font-semibold text-slate-700 mb-1">Địa chỉ</label>
+                <input
+                  type="text"
+                  value={editForm.address}
+                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Chức vụ</label>
+                <input
+                  type="text"
+                  value={editForm.position}
+                  onChange={(e) => setEditForm({ ...editForm, position: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Vai trò hệ thống {!isAdmin && <span className="text-slate-400 font-normal">(Chỉ Admin được đổi)</span>}
+                </label>
+                <select
+                  value={editForm.role_code}
+                  disabled={!isAdmin}
+                  onChange={(e) => setEditForm({ ...editForm, role_code: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white disabled:bg-slate-100 disabled:text-slate-500"
+                >
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.code}>
+                      {r.name} ({r.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Ca làm việc mặc định</label>
+                <select
+                  value={editForm.shift_id}
+                  onChange={(e) => setEditForm({ ...editForm, shift_id: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white"
+                >
+                  <option value="">-- Chưa chọn ca --</option>
+                  {shifts.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.work_day_ratio} công)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Loại hợp đồng</label>
+                <select
+                  value={editForm.contract_type}
+                  onChange={(e) => setEditForm({ ...editForm, contract_type: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white"
+                >
+                  {Array.from(
+                    new Set(['Chính thức', 'Thử việc', 'Cộng tác viên', 'Thời vụ', 'Thực tập', editForm.contract_type].filter(Boolean))
+                  ).map((ct) => (
+                    <option key={ct} value={ct}>
+                      {ct}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Ngày vào làm</label>
+                <input
+                  type="date"
+                  value={editForm.hire_date}
+                  onChange={(e) => setEditForm({ ...editForm, hire_date: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300"
+                />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Phòng ban / Nhóm đổi bằng nút <strong>Điều chuyển</strong> (có lưu lịch sử); lương đổi bằng nút{' '}
+              <strong>Điều chỉnh lương</strong>.
+            </p>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                disabled={savingEdit}
+                onClick={() => setEditTarget(null)}
+                className="px-4 py-2 rounded-xl border border-slate-300 font-semibold cursor-pointer disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={savingEdit}
+                onClick={handleSaveEdit}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {savingEdit ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Đang lưu...
+                  </>
+                ) : (
+                  'Lưu hồ sơ'
                 )}
               </button>
             </div>

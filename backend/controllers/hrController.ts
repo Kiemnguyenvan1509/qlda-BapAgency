@@ -107,8 +107,27 @@ export class HrController {
         return;
       }
 
+      const isUpdatingRole = payload.role_code !== undefined;
+      if (isUpdatingRole && !(await isAdminActor(req))) {
+        res.status(403).json({
+          ok: false,
+          error: 'Chỉ tài khoản Admin mới có quyền thay đổi vai trò hệ thống của nhân sự.',
+        });
+        return;
+      }
+
       const oldEmp = await HrModel.getEmployeeById(id);
       const updated = await HrModel.updateEmployee(id, payload);
+
+      // Đồng bộ vai trò của tài khoản đăng nhập liên kết khi đổi role_code trong hồ sơ
+      if (isUpdatingRole && oldEmp?.role_code !== payload.role_code) {
+        const [roles, users] = await Promise.all([SystemModel.getRoles(), HrModel.getUsers()]);
+        const newRole = roles.find((r: { code: string }) => r.code === payload.role_code);
+        const linkedUser = users.find((u: { employee_id: string | null }) => u.employee_id === id);
+        if (newRole && linkedUser) {
+          await HrModel.updateUser(linkedUser.id, { role_id: newRole.id });
+        }
+      }
 
       // Mục 11.6: Khi nhân viên nghỉ việc, tự động khóa tài khoản nhưng không xóa dữ liệu lịch sử
       if (payload.work_status === 'Đã nghỉ việc') {

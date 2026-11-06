@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   X,
   FileText,
@@ -39,6 +39,8 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
     customers,
     employees,
     departments,
+    roles,
+    users,
     payments,
     expenses,
     expenseCategories,
@@ -121,6 +123,49 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
   const [isAddingWorkLog, setIsAddingWorkLog] = useState(false);
   const [isHandingOver, setIsHandingOver] = useState(false);
   const [isAddingFile, setIsAddingFile] = useState(false);
+
+  // Phân loại nhân sự theo vai trò chính xác
+  const saleEmployees = useMemo(() => {
+    return employees.filter((e) => {
+      const code = e.role_code?.toLowerCase() || '';
+      if (code === 'sale') return true;
+      const u = users.find((user) => user.employee_id === e.id);
+      const r = roles.find((role) => role.id === u?.role_id);
+      if (r?.code?.toLowerCase() === 'sale') return true;
+      const pos = e.position?.toLowerCase() || '';
+      return pos.includes('sale') || pos.includes('kinh doanh');
+    });
+  }, [employees, users, roles]);
+
+  const designerEmployees = useMemo(() => {
+    return employees.filter((e) => {
+      const code = e.role_code?.toLowerCase() || '';
+      if (code === 'designer') return true;
+      const u = users.find((user) => user.employee_id === e.id);
+      const r = roles.find((role) => role.id === u?.role_id);
+      if (r?.code?.toLowerCase() === 'designer') return true;
+      const pos = e.position?.toLowerCase() || '';
+      return pos.includes('design') || pos.includes('thiết kế');
+    });
+  }, [employees, users, roles]);
+
+  const leaderEmployees = useMemo(() => {
+    return employees.filter((e) => {
+      const code = e.role_code?.toLowerCase() || '';
+      if (code === 'team_leader' || code === 'dept_manager' || code === 'director') return true;
+      const u = users.find((user) => user.employee_id === e.id);
+      const r = roles.find((role) => role.id === u?.role_id);
+      if (['team_leader', 'dept_manager', 'director'].includes(r?.code?.toLowerCase() || '')) return true;
+      const pos = e.position?.toLowerCase() || '';
+      return pos.includes('trưởng') || pos.includes('leader') || pos.includes('quản lý') || pos.includes('giám đốc');
+    });
+  }, [employees, users, roles]);
+
+  const eligibleHandoverEmployees = useMemo(() => {
+    if (handoverRole === 'Sale') return saleEmployees;
+    if (handoverRole === 'Designer') return designerEmployees;
+    return leaderEmployees;
+  }, [handoverRole, saleEmployees, designerEmployees, leaderEmployees]);
 
   if (!project) return null;
 
@@ -1042,8 +1087,8 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                     onChange={(e) => setHandoverNewEmp(e.target.value)}
                     className="px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white"
                   >
-                    <option value="">-- Chọn nhân sự mới --</option>
-                    {employees.map((e) => (
+                    <option value="">-- Chọn {handoverRole} ({eligibleHandoverEmployees.length}) --</option>
+                    {eligibleHandoverEmployees.map((e) => (
                       <option key={e.id} value={e.id}>
                         [{e.employee_code}] {e.full_name} ({e.position})
                       </option>

@@ -69,6 +69,8 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
     customers,
     employees,
     departments,
+    roles,
+    users,
     projectStatuses,
     jobTypes,
     defaultVatRate,
@@ -81,6 +83,32 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
     archiveProject,
     deleteProject,
   } = useErp();
+
+  // Lọc chỉ những nhân sự thuộc vai trò Sale
+  const saleEmployees = useMemo(() => {
+    return employees.filter((e) => {
+      const code = e.role_code?.toLowerCase() || '';
+      if (code === 'sale') return true;
+      const u = users.find((user) => user.employee_id === e.id);
+      const r = roles.find((role) => role.id === u?.role_id);
+      if (r?.code?.toLowerCase() === 'sale') return true;
+      const pos = e.position?.toLowerCase() || '';
+      return pos.includes('sale') || pos.includes('kinh doanh');
+    });
+  }, [employees, users, roles]);
+
+  // Lọc chỉ những nhân sự thuộc vai trò Designer
+  const designerEmployees = useMemo(() => {
+    return employees.filter((e) => {
+      const code = e.role_code?.toLowerCase() || '';
+      if (code === 'designer') return true;
+      const u = users.find((user) => user.employee_id === e.id);
+      const r = roles.find((role) => role.id === u?.role_id);
+      if (r?.code?.toLowerCase() === 'designer') return true;
+      const pos = e.position?.toLowerCase() || '';
+      return pos.includes('design') || pos.includes('thiết kế');
+    });
+  }, [employees, users, roles]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -389,8 +417,8 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
             }}
             className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"
           >
-            <option value="all">Tất cả Sale</option>
-            {employees.map((e) => (
+            <option value="all">Tất cả Sale ({saleEmployees.length})</option>
+            {saleEmployees.map((e) => (
               <option key={e.id} value={e.id}>
                 Sale: {e.full_name}
               </option>
@@ -405,8 +433,8 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
             }}
             className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"
           >
-            <option value="all">Tất cả Designer</option>
-            {employees.map((e) => (
+            <option value="all">Tất cả Designer ({designerEmployees.length})</option>
+            {designerEmployees.map((e) => (
               <option key={e.id} value={e.id}>
                 Designer: {e.full_name}
               </option>
@@ -824,8 +852,8 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                     onChange={(e) => setNewProj({ ...newProj, sale_id: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white"
                   >
-                    <option value="">-- Chọn Sale --</option>
-                    {employees.map((e) => (
+                    <option value="">-- Chọn Sale ({saleEmployees.length}) --</option>
+                    {saleEmployees.map((e) => (
                       <option key={e.id} value={e.id}>
                         [{e.employee_code}] {e.full_name}
                       </option>
@@ -842,8 +870,8 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                     onChange={(e) => setNewProj({ ...newProj, designer_id: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white"
                   >
-                    <option value="">-- Chọn Designer --</option>
-                    {employees.map((e) => (
+                    <option value="">-- Chọn Designer ({designerEmployees.length}) --</option>
+                    {designerEmployees.map((e) => (
                       <option key={e.id} value={e.id}>
                         [{e.employee_code}] {e.full_name}
                       </option>

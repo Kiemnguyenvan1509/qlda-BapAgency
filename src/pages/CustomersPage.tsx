@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Plus, Search, MessageSquarePlus, X, Trash2, Loader2 } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { Customer } from '../types/database';
@@ -10,6 +10,8 @@ export const CustomersPage: React.FC = () => {
     customerCareLogs,
     projects,
     employees,
+    roles,
+    users,
     getProjectFinancials,
     createCustomer,
     updateCustomer,
@@ -29,6 +31,19 @@ export const CustomersPage: React.FC = () => {
 
   const [careChannel, setCareChannel] = useState('Điện thoại');
   const [careContent, setCareContent] = useState('');
+
+  // Lọc chỉ những nhân sự thuộc vai trò Sale
+  const saleEmployees = useMemo(() => {
+    return employees.filter((e) => {
+      const code = e.role_code?.toLowerCase() || '';
+      if (code === 'sale') return true;
+      const u = users.find((user) => user.employee_id === e.id);
+      const r = roles.find((role) => role.id === u?.role_id);
+      if (r?.code?.toLowerCase() === 'sale') return true;
+      const pos = e.position?.toLowerCase() || '';
+      return pos.includes('sale') || pos.includes('kinh doanh');
+    });
+  }, [employees, users, roles]);
 
   const [form, setForm] = useState({
     name: '',
@@ -335,10 +350,10 @@ export const CustomersPage: React.FC = () => {
                     onChange={(e) => setForm({ ...form, sale_id: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white"
                   >
-                    <option value="">-- Chọn Sale --</option>
-                    {employees.map((e) => (
+                    <option value="">-- Chọn Sale ({saleEmployees.length}) --</option>
+                    {saleEmployees.map((e) => (
                       <option key={e.id} value={e.id}>
-                        {e.full_name}
+                        [{e.employee_code}] {e.full_name}
                       </option>
                     ))}
                   </select>
