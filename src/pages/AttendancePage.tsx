@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Clock, Download, Wifi, ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { LeaveRequest, OvertimeRequest } from '../types/database';
@@ -87,6 +87,21 @@ export const AttendancePage: React.FC = () => {
   const activeEmpId = isAdmin
     ? selectedEmpId || currentEmployee?.id || employees[0]?.id || ''
     : currentEmployee?.id || '';
+  const activeEmp = employees.find((e) => e.id === activeEmpId);
+
+  // State chọn ca làm việc khi Check-in (cho phép đổi ca đột xuất nửa ngày: Ca Sáng 0.5 công / Ca Chiều 0.5 công)
+  const [selectedShiftId, setSelectedShiftId] = useState<string>('');
+
+  useEffect(() => {
+    if (shifts.length === 0) return;
+    if (activeEmp?.shift_id && shifts.some((s) => s.id === activeEmp.shift_id)) {
+      setSelectedShiftId(activeEmp.shift_id);
+    } else {
+      const hcShift = shifts.find((s) => s.code === 'HC_01' || s.name.toLowerCase().includes('hành chính'));
+      setSelectedShiftId(hcShift ? hcShift.id : shifts[0].id);
+    }
+  }, [activeEmpId, activeEmp?.shift_id, shifts]);
+
   const today = getTodayISO();
   const todayRec = attendance.find(
     (a) => a.employee_id === activeEmpId && String(a.work_date).slice(0, 10) === today
@@ -171,6 +186,32 @@ export const AttendancePage: React.FC = () => {
               </span>
             )}
 
+            {!todayRec ? (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-indigo-500/50">
+                <span className="text-slate-400 font-medium">Ca làm:</span>
+                <select
+                  value={selectedShiftId}
+                  onChange={(e) => setSelectedShiftId(e.target.value)}
+                  className="bg-transparent text-indigo-300 font-bold focus:outline-none cursor-pointer"
+                  title="Chọn ca làm việc (Mặc định ca Hành chính 1 công; Đột xuất nửa ngày: chọn Ca Sáng 0.5 công hoặc Ca Chiều 0.5 công)"
+                >
+                  {shifts.map((s) => (
+                    <option key={s.id} value={s.id} className="bg-slate-900 text-white">
+                      {s.name} ({s.work_day_ratio} công • {s.start_time.slice(0, 5)} - {s.end_time.slice(0, 5)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <span className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-medium">
+                Ca hôm nay:{' '}
+                <strong className="text-indigo-300">
+                  {shifts.find((s) => s.id === todayRec.shift_id)?.name || 'Ca làm việc'}
+                </strong>{' '}
+                ({todayRec.work_day_credit} công)
+              </span>
+            )}
+
             <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-indigo-300 font-semibold">
               <Wifi className="w-3.5 h-3.5" /> Chấm công Web
             </span>
@@ -183,7 +224,7 @@ export const AttendancePage: React.FC = () => {
                   attSubmittingLock.current = true;
                   setIsSubmittingAtt(true);
                   try {
-                    const res = await checkInAttendance(activeEmpId, 'Web');
+                    const res = await checkInAttendance(activeEmpId, 'Web', selectedShiftId || undefined);
                     setStatusIsError(!res.ok);
                     setStatusMsg(res.ok ? 'Đã Check-in vào ca thành công! (1/1 lần trong ngày)' : res.error || '');
                   } finally {
@@ -191,9 +232,19 @@ export const AttendancePage: React.FC = () => {
                     setIsSubmittingAtt(false);
                   }
                 }}
-                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
               >
-                {isSubmittingAtt ? 'Đang xử lý...' : 'Check-in Vào Ca (1 lần/ngày)'}
+                {isSubmittingAtt ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Đang xử lý...
+                  </>
+                ) : (
+                  `Check-in Vào Ca (${
+                    shifts.find((s) => s.id === selectedShiftId)?.work_day_ratio !== undefined
+                      ? `${shifts.find((s) => s.id === selectedShiftId)?.work_day_ratio} công`
+                      : '1 lần/ngày'
+                  })`
+                )}
               </button>
             ) : !todayRec.check_out ? (
               <button
@@ -405,6 +456,11 @@ export const AttendancePage: React.FC = () => {
                     <td className="px-4 py-3 font-semibold">{formatDate(rec.work_date)}</td>
                     <td className="px-4 py-3 font-bold">
                       [{emp?.employee_code}] {emp?.full_name}
+                      {rec.shift_id && (
+                        <div className="text-[11px] font-normal text-slate-500">
+                          {shifts.find((s) => s.id === rec.shift_id)?.name || 'Ca làm việc'}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-emerald-700 font-semibold">{formatDateTime(rec.check_in)}</td>
                     <td className="px-4 py-3 text-indigo-700 font-semibold">{formatDateTime(rec.check_out)}</td>

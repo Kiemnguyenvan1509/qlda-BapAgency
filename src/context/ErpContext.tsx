@@ -214,7 +214,8 @@ interface ErpContextValue {
 
   checkInAttendance: (
     employeeId: string,
-    method?: AttendanceRecord['method']
+    method?: AttendanceRecord['method'],
+    shiftId?: string
   ) => Promise<{ ok: boolean; error?: string }>;
   checkOutAttendance: (attendanceId: string) => Promise<{ ok: boolean; error?: string }>;
   submitAttendanceExplanation: (attendanceId: string, reason: string) => Promise<{ ok: boolean; error?: string }>;
@@ -1026,12 +1027,13 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ======================== ATTENDANCE & PAYROLL CONTROLLER CALLS ========================
   const checkInAttendance = async (
     employeeId: string,
-    method: AttendanceRecord['method'] = 'Web'
+    method: AttendanceRecord['method'] = 'Web',
+    shiftId?: string
   ) => {
     const activeIp = currentClientIp || (await detectCurrentIp());
     const res = await apiRequest('/attendance/check-in', {
       method: 'POST',
-      body: JSON.stringify({ employeeId, method, clientIp: activeIp }),
+      body: JSON.stringify({ employeeId, method, clientIp: activeIp, shiftId }),
     });
     if (res.ok) await refreshAll();
     return res;

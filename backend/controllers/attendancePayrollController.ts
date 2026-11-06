@@ -59,7 +59,7 @@ export class AttendancePayrollController {
 
   static async checkIn(req: Request, res: Response) {
     try {
-      const { employeeId, clientIp: rawClientIp } = req.body;
+      const { employeeId, shiftId, clientIp: rawClientIp } = req.body;
 
       const permError = await verifySelfOrAdmin(req, employeeId);
       if (permError) {
@@ -93,7 +93,12 @@ export class AttendancePayrollController {
         return;
       }
 
-      const shift = shifts.find((s) => s.id === emp?.shift_id) || shifts[0];
+      // Ưu tiên ca làm việc được nhân viên/quản lý chủ động chọn (ví dụ đột xuất làm nửa ngày: Ca Sáng/Ca Chiều),
+      // nếu không chọn thì lấy theo hồ sơ nhân sự, hoặc ca đầu tiên
+      const shift =
+        (shiftId ? shifts.find((s) => s.id === shiftId) : null) ||
+        shifts.find((s) => s.id === emp?.shift_id) ||
+        shifts[0];
       const now = new Date();
       const today = getTodayISO();
 
@@ -108,6 +113,11 @@ export class AttendancePayrollController {
         }
       }
 
+      const workDayCredit =
+        shift?.work_day_ratio !== undefined && shift?.work_day_ratio !== null
+          ? Number(shift.work_day_ratio)
+          : 1.0;
+
       const created = await AttendancePayrollModel.createAttendance({
         employee_id: employeeId,
         work_date: today,
@@ -118,12 +128,15 @@ export class AttendancePayrollController {
         gps_location: 'Wi-Fi Công ty',
         device_info: req.actor.ipOrDevice,
         late_minutes: lateMinutes,
-        work_day_credit: shift?.work_day_ratio || 1.0,
+        work_day_credit: workDayCredit,
       });
 
       await SystemModel.writeAuditLog(req.actor, 'Chấm công', 'Check-in chấm công Web', employeeId, null, {
         today,
         method: 'Web',
+        shiftCode: shift?.code,
+        shiftName: shift?.name,
+        workDayCredit,
         lateMinutes,
       });
 
