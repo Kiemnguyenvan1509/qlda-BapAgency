@@ -19,6 +19,8 @@ import {
   CheckCircle2,
   Menu,
   RefreshCw,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { ErpProvider, useErp } from './context/ErpContext';
 import { SupabaseSetupModal } from './components/SupabaseSetupModal';
@@ -126,6 +128,24 @@ const MainShell: React.FC = () => {
   const roleCode = currentRole?.code || currentEmployee?.role_code || '';
   const isAdmin = roleCode === 'super_admin' || roleCode === 'admin';
   const visibleNavItems = NAV_ITEMS.filter((item) => item.id !== 'settings' || isAdmin);
+
+  // Quản lý chế độ giao diện Sáng / Tối (Dark / Light mode)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('bap_theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('bap_theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   useEffect(() => {
     if (!isAdmin && activeModule === 'settings') {
@@ -240,8 +260,38 @@ const MainShell: React.FC = () => {
           })}
         </nav>
 
-        {sidebarOpen && isAdmin && (
-          <div className="p-3 border-t border-slate-800 space-y-2 text-xs">
+        <div className="p-3 border-t border-slate-800 space-y-2 text-xs">
+          {/* Nút chuyển đổi Giao diện Sáng / Tối */}
+          <div className="flex items-center justify-between p-1 rounded-xl bg-slate-800/90 border border-slate-700/60 text-xs">
+            <button
+              type="button"
+              onClick={() => setTheme('light')}
+              title="Chuyển sang giao diện Sáng"
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                theme === 'light'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Sun className="w-3.5 h-3.5 text-amber-400" />
+              {sidebarOpen && <span>Sáng</span>}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme('dark')}
+              title="Chuyển sang giao diện Tối"
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                theme === 'dark'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Moon className="w-3.5 h-3.5 text-indigo-300" />
+              {sidebarOpen && <span>Tối</span>}
+            </button>
+          </div>
+
+          {sidebarOpen && isAdmin && (
             <button
               onClick={() => setShowSupabaseModal(true)}
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-200 cursor-pointer"
@@ -260,8 +310,8 @@ const MainShell: React.FC = () => {
                 </span>
               )}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </aside>
 
       {/* Khu vực nội dung chính bên phải (Mục 13.2) */}
