@@ -153,18 +153,18 @@ export const AttendancePage: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Check-in / Check-out Quick Bar */}
-      <div className="bg-slate-900 text-white rounded-2xl p-5 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="text-xs font-bold uppercase text-indigo-300 flex items-center gap-1.5">
-              <Clock className="w-4 h-4" /> Chấm Công Web Trực Tuyến Hôm Nay ({formatDate(today)})
+              <Clock className="w-4 h-4 shrink-0" /> Chấm Công Web Trực Tuyến Hôm Nay ({formatDate(today)})
             </div>
             <p className="text-xs text-slate-300">
               Hệ thống tự động đối chiếu Địa chỉ IP mạng Wi-Fi đang kết nối với IP Wi-Fi công ty trước khi ghi nhận Check-in / Check-out.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 text-xs">
             {isAdmin ? (
               <select
                 value={activeEmpId}
@@ -180,19 +180,19 @@ export const AttendancePage: React.FC = () => {
             ) : (
               <span
                 title="Bạn chỉ có thể chấm công cho chính mình"
-                className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold"
+                className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-semibold text-center sm:text-left"
               >
                 [{currentEmployee?.employee_code || 'NV'}] {currentEmployee?.full_name || 'Chưa gắn hồ sơ NV'}
               </span>
             )}
 
             {!todayRec ? (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-indigo-500/50">
-                <span className="text-slate-400 font-medium">Ca làm:</span>
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-indigo-500/50">
+                <span className="text-slate-400 font-medium shrink-0">Ca làm:</span>
                 <select
                   value={selectedShiftId}
                   onChange={(e) => setSelectedShiftId(e.target.value)}
-                  className="bg-transparent text-indigo-300 font-bold focus:outline-none cursor-pointer"
+                  className="bg-transparent text-indigo-300 font-bold focus:outline-none cursor-pointer w-full sm:w-auto"
                   title="Chọn ca làm việc (Mặc định ca Hành chính 1 công; Đột xuất nửa ngày: chọn Ca Sáng 0.5 công hoặc Ca Chiều 0.5 công)"
                 >
                   {shifts.map((s) => (
@@ -203,7 +203,7 @@ export const AttendancePage: React.FC = () => {
                 </select>
               </div>
             ) : (
-              <span className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-medium">
+              <span className="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 font-medium text-center sm:text-left">
                 Ca hôm nay:{' '}
                 <strong className="text-indigo-300">
                   {shifts.find((s) => s.id === todayRec.shift_id)?.name || 'Ca làm việc'}
@@ -212,8 +212,8 @@ export const AttendancePage: React.FC = () => {
               </span>
             )}
 
-            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-indigo-300 font-semibold">
-              <Wifi className="w-3.5 h-3.5" /> Chấm công Web
+            <span className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-indigo-300 font-semibold">
+              <Wifi className="w-3.5 h-3.5 shrink-0" /> Chấm công Web
             </span>
 
             {!todayRec ? (
@@ -232,7 +232,7 @@ export const AttendancePage: React.FC = () => {
                     setIsSubmittingAtt(false);
                   }
                 }}
-                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-50 inline-flex items-center justify-center gap-1.5 shadow-xs"
               >
                 {isSubmittingAtt ? (
                   <>
@@ -262,12 +262,12 @@ export const AttendancePage: React.FC = () => {
                     setIsSubmittingAtt(false);
                   }
                 }}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer disabled:opacity-50"
+                className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer disabled:opacity-50 text-center shadow-xs"
               >
                 {isSubmittingAtt ? 'Đang xử lý...' : 'Check-out Ra Ca (1 lần/ngày)'}
               </button>
             ) : (
-              <span className="px-3 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 font-semibold">
+              <span className="px-3 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 font-semibold text-center">
                 Đã hoàn tất Check-in & Check-out hôm nay (Tối đa 1 lần/ngày)
               </span>
             )}
@@ -386,44 +386,44 @@ export const AttendancePage: React.FC = () => {
       )}
 
       {/* Navigation Tabs */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-2 min-w-max pb-1 sm:pb-0">
           <button
             onClick={() => setTab('daily')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'daily' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'daily' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             1. Nhật ký Chấm công & Giải trình ({attendance.length})
           </button>
           <button
             onClick={() => setTab('summary')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'summary' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'summary' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             2. Bảng tổng hợp chấm công tháng
           </button>
           <button
             onClick={() => setTab('leaves')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'leaves' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'leaves' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             3. Nghỉ phép ({leaveRequests.length})
           </button>
           <button
             onClick={() => setTab('overtime')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'overtime' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'overtime' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             4. Tăng ca OT ({overtimeRequests.length})
           </button>
           <button
             onClick={() => setTab('shifts')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'shifts' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'shifts' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             5. Quản lý Ca làm việc ({shifts.length})
@@ -434,7 +434,8 @@ export const AttendancePage: React.FC = () => {
       {/* TAB 1: NHẬT KÝ CHẤM CÔNG & GIẢI TRÌNH */}
       {tab === 'daily' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[750px]">
             <thead className="bg-slate-100 text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Ngày</th>
@@ -557,14 +558,15 @@ export const AttendancePage: React.FC = () => {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {/* TAB 2: BẢNG TỔNG HỢP CHẤM CÔNG THÁNG (Mục 8.6) */}
       {tab === 'summary' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl p-4 border border-slate-200 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold">Kỳ tổng hợp công:</span>
               <input
                 type="number"
@@ -605,15 +607,15 @@ export const AttendancePage: React.FC = () => {
                   `Bang_Tong_Hop_Cham_Cong_T${sumMonth}_${sumYear}`
                 )
               }
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white font-semibold cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white font-semibold cursor-pointer w-full sm:w-auto justify-center"
             >
               <Download className="w-4 h-4" /> Xuất Excel Bảng Công
             </button>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
+            <div className="overflow-x-auto touch-scroll">
+              <table className="w-full text-xs text-left min-w-[850px]">
                 <thead className="bg-slate-100 text-slate-600 uppercase">
                   <tr>
                     <th className="px-3 py-3">Mã NV</th>
@@ -742,73 +744,75 @@ export const AttendancePage: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-100 text-slate-600 uppercase">
-                <tr>
-                  <th className="px-4 py-3">Nhân viên</th>
-                  <th className="px-4 py-3">Loại nghỉ</th>
-                  <th className="px-4 py-3">Thời gian</th>
-                  <th className="px-4 py-3 text-center">Số ngày</th>
-                  <th className="px-4 py-3">Lý do</th>
-                  <th className="px-4 py-3">Trạng thái</th>
-                  <th className="px-4 py-3 text-right">Duyệt</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {leaveRequests.map((l) => {
-                  const emp = employees.find((e) => e.id === l.employee_id);
-                  const isUpdatingThisLeave = updatingLeaveId === l.id;
-                  return (
-                    <tr key={l.id}>
-                      <td className="px-4 py-3 font-bold">{emp?.full_name}</td>
-                      <td className="px-4 py-3">{l.leave_type}</td>
-                      <td className="px-4 py-3">
-                        {formatDate(l.start_date)} → {formatDate(l.end_date)}
-                      </td>
-                      <td className="px-4 py-3 text-center font-bold">{l.total_days} ngày</td>
-                      <td className="px-4 py-3">{l.reason}</td>
-                      <td className="px-4 py-3 font-semibold">{l.status}</td>
-                      <td className="px-4 py-3 text-right space-x-1">
-                        {l.status === 'Chờ duyệt' && canAction('attendance', 'approve') && (
-                          <>
-                            <button
-                              disabled={isUpdatingThisLeave}
-                              onClick={async () => {
-                                if (isUpdatingThisLeave) return;
-                                setUpdatingLeaveId(l.id);
-                                try {
-                                  await updateLeaveStatus(l.id, 'Đã duyệt');
-                                } finally {
-                                  setUpdatingLeaveId(null);
-                                }
-                              }}
-                              className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
-                            >
-                              {isUpdatingThisLeave ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Duyệt'}
-                            </button>
-                            <button
-                              disabled={isUpdatingThisLeave}
-                              onClick={async () => {
-                                if (isUpdatingThisLeave) return;
-                                setUpdatingLeaveId(l.id);
-                                try {
-                                  await updateLeaveStatus(l.id, 'Từ chối');
-                                } finally {
-                                  setUpdatingLeaveId(null);
-                                }
-                              }}
-                              className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
-                            >
-                              {isUpdatingThisLeave ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Từ chối'}
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto touch-scroll">
+              <table className="w-full text-xs text-left min-w-[700px]">
+                <thead className="bg-slate-100 text-slate-600 uppercase">
+                  <tr>
+                    <th className="px-4 py-3">Nhân viên</th>
+                    <th className="px-4 py-3">Loại nghỉ</th>
+                    <th className="px-4 py-3">Thời gian</th>
+                    <th className="px-4 py-3 text-center">Số ngày</th>
+                    <th className="px-4 py-3">Lý do</th>
+                    <th className="px-4 py-3">Trạng thái</th>
+                    <th className="px-4 py-3 text-right">Duyệt</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {leaveRequests.map((l) => {
+                    const emp = employees.find((e) => e.id === l.employee_id);
+                    const isUpdatingThisLeave = updatingLeaveId === l.id;
+                    return (
+                      <tr key={l.id}>
+                        <td className="px-4 py-3 font-bold">{emp?.full_name}</td>
+                        <td className="px-4 py-3">{l.leave_type}</td>
+                        <td className="px-4 py-3">
+                          {formatDate(l.start_date)} → {formatDate(l.end_date)}
+                        </td>
+                        <td className="px-4 py-3 text-center font-bold">{l.total_days} ngày</td>
+                        <td className="px-4 py-3">{l.reason}</td>
+                        <td className="px-4 py-3 font-semibold">{l.status}</td>
+                        <td className="px-4 py-3 text-right space-x-1">
+                          {l.status === 'Chờ duyệt' && canAction('attendance', 'approve') && (
+                            <>
+                              <button
+                                disabled={isUpdatingThisLeave}
+                                onClick={async () => {
+                                  if (isUpdatingThisLeave) return;
+                                  setUpdatingLeaveId(l.id);
+                                  try {
+                                    await updateLeaveStatus(l.id, 'Đã duyệt');
+                                  } finally {
+                                    setUpdatingLeaveId(null);
+                                  }
+                                }}
+                                className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                              >
+                                {isUpdatingThisLeave ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Duyệt'}
+                              </button>
+                              <button
+                                disabled={isUpdatingThisLeave}
+                                onClick={async () => {
+                                  if (isUpdatingThisLeave) return;
+                                  setUpdatingLeaveId(l.id);
+                                  try {
+                                    await updateLeaveStatus(l.id, 'Từ chối');
+                                  } finally {
+                                    setUpdatingLeaveId(null);
+                                  }
+                                }}
+                                className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                              >
+                                {isUpdatingThisLeave ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Từ chối'}
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -895,73 +899,75 @@ export const AttendancePage: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-100 text-slate-600 uppercase">
-                <tr>
-                  <th className="px-4 py-3">Nhân viên</th>
-                  <th className="px-4 py-3">Ngày tăng ca</th>
-                  <th className="px-4 py-3">Phân loại</th>
-                  <th className="px-4 py-3 text-center">Tổng giờ</th>
-                  <th className="px-4 py-3">Lý do</th>
-                  <th className="px-4 py-3">Trạng thái</th>
-                  <th className="px-4 py-3 text-right">Duyệt</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {overtimeRequests.map((ot) => {
-                  const emp = employees.find((e) => e.id === ot.employee_id);
-                  const isUpdatingThisOt = updatingOtId === ot.id;
-                  return (
-                    <tr key={ot.id}>
-                      <td className="px-4 py-3 font-bold">{emp?.full_name}</td>
-                      <td className="px-4 py-3">{formatDate(ot.overtime_date)}</td>
-                      <td className="px-4 py-3">
-                        {ot.overtime_type} (x{ot.multiplier})
-                      </td>
-                      <td className="px-4 py-3 text-center font-bold text-indigo-700">{ot.total_hours}h</td>
-                      <td className="px-4 py-3">{ot.reason}</td>
-                      <td className="px-4 py-3 font-semibold">{ot.status}</td>
-                      <td className="px-4 py-3 text-right space-x-1">
-                        {ot.status === 'Chờ duyệt' && canAction('attendance', 'approve') && (
-                          <>
-                            <button
-                              disabled={isUpdatingThisOt}
-                              onClick={async () => {
-                                if (isUpdatingThisOt) return;
-                                setUpdatingOtId(ot.id);
-                                try {
-                                  await updateOvertimeStatus(ot.id, 'Đã duyệt');
-                                } finally {
-                                  setUpdatingOtId(null);
-                                }
-                              }}
-                              className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
-                            >
-                              {isUpdatingThisOt ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Duyệt'}
-                            </button>
-                            <button
-                              disabled={isUpdatingThisOt}
-                              onClick={async () => {
-                                if (isUpdatingThisOt) return;
-                                setUpdatingOtId(ot.id);
-                                try {
-                                  await updateOvertimeStatus(ot.id, 'Từ chối');
-                                } finally {
-                                  setUpdatingOtId(null);
-                                }
-                              }}
-                              className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
-                            >
-                              {isUpdatingThisOt ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Từ chối'}
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto touch-scroll">
+              <table className="w-full text-xs text-left min-w-[700px]">
+                <thead className="bg-slate-100 text-slate-600 uppercase">
+                  <tr>
+                    <th className="px-4 py-3">Nhân viên</th>
+                    <th className="px-4 py-3">Ngày tăng ca</th>
+                    <th className="px-4 py-3">Phân loại</th>
+                    <th className="px-4 py-3 text-center">Tổng giờ</th>
+                    <th className="px-4 py-3">Lý do</th>
+                    <th className="px-4 py-3">Trạng thái</th>
+                    <th className="px-4 py-3 text-right">Duyệt</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {overtimeRequests.map((ot) => {
+                    const emp = employees.find((e) => e.id === ot.employee_id);
+                    const isUpdatingThisOt = updatingOtId === ot.id;
+                    return (
+                      <tr key={ot.id}>
+                        <td className="px-4 py-3 font-bold">{emp?.full_name}</td>
+                        <td className="px-4 py-3">{formatDate(ot.overtime_date)}</td>
+                        <td className="px-4 py-3">
+                          {ot.overtime_type} (x{ot.multiplier})
+                        </td>
+                        <td className="px-4 py-3 text-center font-bold text-indigo-700">{ot.total_hours}h</td>
+                        <td className="px-4 py-3">{ot.reason}</td>
+                        <td className="px-4 py-3 font-semibold">{ot.status}</td>
+                        <td className="px-4 py-3 text-right space-x-1">
+                          {ot.status === 'Chờ duyệt' && canAction('attendance', 'approve') && (
+                            <>
+                              <button
+                                disabled={isUpdatingThisOt}
+                                onClick={async () => {
+                                  if (isUpdatingThisOt) return;
+                                  setUpdatingOtId(ot.id);
+                                  try {
+                                    await updateOvertimeStatus(ot.id, 'Đã duyệt');
+                                  } finally {
+                                    setUpdatingOtId(null);
+                                  }
+                                }}
+                                className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                              >
+                                {isUpdatingThisOt ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Duyệt'}
+                              </button>
+                              <button
+                                disabled={isUpdatingThisOt}
+                                onClick={async () => {
+                                  if (isUpdatingThisOt) return;
+                                  setUpdatingOtId(ot.id);
+                                  try {
+                                    await updateOvertimeStatus(ot.id, 'Từ chối');
+                                  } finally {
+                                    setUpdatingOtId(null);
+                                  }
+                                }}
+                                className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                              >
+                                {isUpdatingThisOt ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Từ chối'}
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -1028,32 +1034,34 @@ export const AttendancePage: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-100 text-slate-600 uppercase">
-                <tr>
-                  <th className="px-4 py-3">Mã ca</th>
-                  <th className="px-4 py-3">Tên ca làm việc</th>
-                  <th className="px-4 py-3">Giờ bắt đầu – Kết thúc</th>
-                  <th className="px-4 py-3">Nghỉ giữa ca</th>
-                  <th className="px-4 py-3">Đi muộn cho phép</th>
-                  <th className="px-4 py-3">Hệ số ngày công</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {shifts.map((s) => (
-                  <tr key={s.id}>
-                    <td className="px-4 py-3 font-mono font-bold text-indigo-600">{s.code}</td>
-                    <td className="px-4 py-3 font-bold">{s.name}</td>
-                    <td className="px-4 py-3 font-semibold">
-                      {s.start_time} – {s.end_time}
-                    </td>
-                    <td className="px-4 py-3">{s.break_minutes} phút</td>
-                    <td className="px-4 py-3">{s.grace_late_minutes} phút</td>
-                    <td className="px-4 py-3 font-bold">{s.work_day_ratio} công</td>
+            <div className="overflow-x-auto touch-scroll">
+              <table className="w-full text-xs text-left min-w-[700px]">
+                <thead className="bg-slate-100 text-slate-600 uppercase">
+                  <tr>
+                    <th className="px-4 py-3">Mã ca</th>
+                    <th className="px-4 py-3">Tên ca làm việc</th>
+                    <th className="px-4 py-3">Giờ bắt đầu – Kết thúc</th>
+                    <th className="px-4 py-3">Nghỉ giữa ca</th>
+                    <th className="px-4 py-3">Đi muộn cho phép</th>
+                    <th className="px-4 py-3">Hệ số ngày công</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {shifts.map((s) => (
+                    <tr key={s.id}>
+                      <td className="px-4 py-3 font-mono font-bold text-indigo-600">{s.code}</td>
+                      <td className="px-4 py-3 font-bold">{s.name}</td>
+                      <td className="px-4 py-3 font-semibold">
+                        {s.start_time} – {s.end_time}
+                      </td>
+                      <td className="px-4 py-3">{s.break_minutes} phút</td>
+                      <td className="px-4 py-3">{s.grace_late_minutes} phút</td>
+                      <td className="px-4 py-3 font-bold">{s.work_day_ratio} công</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

@@ -204,8 +204,8 @@ export const RevenuePage: React.FC = () => {
 
       {tab === 'contracts' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[850px]">
               <thead className="bg-slate-100 text-slate-600 uppercase">
                 <tr>
                   <th className="px-4 py-3">Mã DA</th>
@@ -276,30 +276,32 @@ export const RevenuePage: React.FC = () => {
             <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-100 font-bold text-xs text-indigo-950">
               Doanh Thu Ghi Nhận Theo Sale Phụ Trách (100% Giá Trị Dự Án)
             </div>
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-100 text-slate-600">
-                <tr>
-                  <th className="px-3 py-2.5">Nhân sự Sale</th>
-                  <th className="px-3 py-2.5 text-center">Số DA</th>
-                  <th className="px-3 py-2.5 text-right">DT Trước thuế</th>
-                  <th className="px-3 py-2.5 text-right">Thực thu</th>
-                  <th className="px-3 py-2.5 text-right">Công nợ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {staffRevenue.sales.map((s) => (
-                  <tr key={s.id}>
-                    <td className="px-3 py-2.5 font-semibold">
-                      [{s.code}] {s.name}
-                    </td>
-                    <td className="px-3 py-2.5 text-center font-bold">{s.projectCount}</td>
-                    <td className="px-3 py-2.5 text-right font-bold text-indigo-700">{formatCurrency(s.beforeTax)}</td>
-                    <td className="px-3 py-2.5 text-right text-emerald-700">{formatCurrency(s.confirmedPaid)}</td>
-                    <td className="px-3 py-2.5 text-right text-rose-600">{formatCurrency(s.debt)}</td>
+            <div className="overflow-x-auto touch-scroll">
+              <table className="w-full text-xs text-left min-w-[500px]">
+                <thead className="bg-slate-100 text-slate-600">
+                  <tr>
+                    <th className="px-3 py-2.5">Nhân sự Sale</th>
+                    <th className="px-3 py-2.5 text-center">Số DA</th>
+                    <th className="px-3 py-2.5 text-right">DT Trước thuế</th>
+                    <th className="px-3 py-2.5 text-right">Thực thu</th>
+                    <th className="px-3 py-2.5 text-right">Công nợ</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {staffRevenue.sales.map((s) => (
+                    <tr key={s.id}>
+                      <td className="px-3 py-2.5 font-semibold">
+                        [{s.code}] {s.name}
+                      </td>
+                      <td className="px-3 py-2.5 text-center font-bold">{s.projectCount}</td>
+                      <td className="px-3 py-2.5 text-right font-bold text-indigo-700">{formatCurrency(s.beforeTax)}</td>
+                      <td className="px-3 py-2.5 text-right text-emerald-700">{formatCurrency(s.confirmedPaid)}</td>
+                      <td className="px-3 py-2.5 text-right text-rose-600">{formatCurrency(s.debt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Bảng Doanh thu Designer */}
@@ -307,37 +309,40 @@ export const RevenuePage: React.FC = () => {
             <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100 font-bold text-xs text-emerald-950">
               Doanh Thu Ghi Nhận Theo Designer Phụ Trách (100% Giá Trị Dự Án)
             </div>
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-100 text-slate-600">
-                <tr>
-                  <th className="px-3 py-2.5">Nhân sự Designer</th>
-                  <th className="px-3 py-2.5 text-center">Số DA</th>
-                  <th className="px-3 py-2.5 text-right">DT Trước thuế</th>
-                  <th className="px-3 py-2.5 text-right">Thực thu DA</th>
-                  <th className="px-3 py-2.5 text-right">Công nợ DA</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {staffRevenue.designers.map((d) => (
-                  <tr key={d.id}>
-                    <td className="px-3 py-2.5 font-semibold">
-                      [{d.code}] {d.name}
-                    </td>
-                    <td className="px-3 py-2.5 text-center font-bold">{d.projectCount}</td>
-                    <td className="px-3 py-2.5 text-right font-bold text-emerald-700">{formatCurrency(d.beforeTax)}</td>
-                    <td className="px-3 py-2.5 text-right text-emerald-700">{formatCurrency(d.confirmedPaid)}</td>
-                    <td className="px-3 py-2.5 text-right text-rose-600">{formatCurrency(d.debt)}</td>
+            <div className="overflow-x-auto touch-scroll">
+              <table className="w-full text-xs text-left min-w-[500px]">
+                <thead className="bg-slate-100 text-slate-600">
+                  <tr>
+                    <th className="px-3 py-2.5">Nhân sự Designer</th>
+                    <th className="px-3 py-2.5 text-center">Số DA</th>
+                    <th className="px-3 py-2.5 text-right">DT Trước thuế</th>
+                    <th className="px-3 py-2.5 text-right">Thực thu DA</th>
+                    <th className="px-3 py-2.5 text-right">Công nợ DA</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {staffRevenue.designers.map((d) => (
+                    <tr key={d.id}>
+                      <td className="px-3 py-2.5 font-semibold">
+                        [{d.code}] {d.name}
+                      </td>
+                      <td className="px-3 py-2.5 text-center font-bold">{d.projectCount}</td>
+                      <td className="px-3 py-2.5 text-right font-bold text-emerald-700">{formatCurrency(d.beforeTax)}</td>
+                      <td className="px-3 py-2.5 text-right text-emerald-700">{formatCurrency(d.confirmedPaid)}</td>
+                      <td className="px-3 py-2.5 text-right text-rose-600">{formatCurrency(d.debt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
       {tab === 'revisions' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[650px]">
             <thead className="bg-slate-100 text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Thời gian</th>
@@ -371,6 +376,7 @@ export const RevenuePage: React.FC = () => {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

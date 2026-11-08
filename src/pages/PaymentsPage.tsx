@@ -173,7 +173,8 @@ export const PaymentsPage: React.FC = () => {
 
       {tab === 'transactions' ? (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[750px]">
             <thead className="bg-slate-100 text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Mã GD</th>
@@ -294,10 +295,12 @@ export const PaymentsPage: React.FC = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[750px]">
             <thead className="bg-slate-100 text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Mã DA</th>
@@ -342,6 +345,7 @@ export const PaymentsPage: React.FC = () => {
                 })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

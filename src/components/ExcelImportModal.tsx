@@ -113,24 +113,24 @@ export const ExcelImportModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const previewData = rawRows.length > 0 ? buildMappedData().slice(0, 5) : [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden my-8">
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <FileSpreadsheet className="w-6 h-6 text-emerald-400" />
+            <FileSpreadsheet className="w-6 h-6 text-emerald-400 shrink-0" />
             <div>
-              <h3 className="font-bold text-base">Chuyển Đổi Dữ Liệu Từ Google Sheets / Excel</h3>
-              <p className="text-xs text-slate-400">
+              <h3 className="font-bold text-sm sm:text-base">Chuyển Đổi Dữ Liệu Từ Google Sheets / Excel</h3>
+              <p className="text-[11px] sm:text-xs text-slate-400">
                 Ánh xạ cột, kiểm tra trùng mã dự án, xem trước và nhập hàng loạt vào Supabase
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white cursor-pointer shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1">
           {/* Upload */}
           <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center bg-slate-50">
             <input
@@ -187,8 +187,8 @@ export const ExcelImportModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                   2. Xem trước 5 dòng đầu tiên sau khi ánh xạ
                 </h4>
-                <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                  <table className="w-full text-xs text-left">
+                <div className="overflow-x-auto touch-scroll border border-slate-200 rounded-xl">
+                  <table className="w-full text-xs text-left min-w-[650px]">
                     <thead className="bg-slate-100 text-slate-600 uppercase">
                       <tr>
                         <th className="px-3 py-2">Mã DA</th>

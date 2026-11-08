@@ -196,36 +196,36 @@ export const HrPage: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto touch-scroll scrollbar-none pb-1 w-full lg:w-auto">
           <button
             onClick={() => setTab('employees')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'employees' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'employees' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             1. Hồ sơ Nhân sự ({scopedEmployees.length})
           </button>
           <button
             onClick={() => setTab('org')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'org' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'org' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             2. Phòng ban, Nhóm & Điều chuyển
           </button>
           <button
             onClick={() => setTab('sale_kpi')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'sale_kpi' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'sale_kpi' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             3. Hiệu suất Sale
           </button>
           <button
             onClick={() => setTab('designer_kpi')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'designer_kpi' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'designer_kpi' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             4. Hiệu suất Designer
@@ -248,8 +248,8 @@ export const HrPage: React.FC = () => {
       {/* TAB 1: DANH SÁCH HỒ SƠ NHÂN VIÊN */}
       {tab === 'employees' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[850px]">
               <thead className="bg-slate-100 text-slate-600 uppercase">
                 <tr>
                   <th className="px-4 py-3">Mã NV</th>
@@ -573,7 +573,8 @@ export const HrPage: React.FC = () => {
       {/* TAB 3: HIỆU SUẤT SALE (Mục 7.3) */}
       {tab === 'sale_kpi' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[750px]">
             <thead className="bg-slate-100 text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Nhân sự Sale</th>
@@ -626,13 +627,15 @@ export const HrPage: React.FC = () => {
                 })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {/* TAB 4: HIỆU SUẤT DESIGNER (Mục 7.4) */}
       {tab === 'designer_kpi' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[750px]">
             <thead className="bg-slate-100 text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Nhân sự Designer</th>
@@ -688,6 +691,7 @@ export const HrPage: React.FC = () => {
                 })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

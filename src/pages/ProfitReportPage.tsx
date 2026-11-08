@@ -180,8 +180,8 @@ export const ProfitReportPage: React.FC = () => {
       {/* TAB 1: LỢI NHUẬN DỰ ÁN */}
       {tab === 'by_project' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[950px]">
               <thead className="bg-slate-100 text-slate-600 uppercase">
                 <tr>
                   <th className="px-3 py-3">Mã DA / Dự án</th>
@@ -299,7 +299,8 @@ export const ProfitReportPage: React.FC = () => {
       {/* TAB 3: BÁO CÁO LỢI NHUẬN THEO SALE & DESIGNER (Mục 6.5) */}
       {tab === 'by_staff' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[750px]">
             <thead className="bg-slate-100 text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Nhân sự</th>
@@ -352,6 +353,7 @@ export const ProfitReportPage: React.FC = () => {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

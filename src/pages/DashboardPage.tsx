@@ -258,12 +258,12 @@ export const DashboardPage: React.FC<Props> = ({ onOpenExcelImport }) => {
     <div className="space-y-6">
       {/* Top Filter Bar & View Switcher */}
       <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none w-full lg:w-auto pb-1 sm:pb-0">
           {isAdminOrDirector ? (
             <>
               <button
                 onClick={() => setViewMode('executive')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap shrink-0 ${
                   activeViewMode === 'executive'
                     ? 'bg-slate-900 text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -273,7 +273,7 @@ export const DashboardPage: React.FC<Props> = ({ onOpenExcelImport }) => {
               </button>
               <button
                 onClick={() => setViewMode('sale')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap shrink-0 ${
                   activeViewMode === 'sale'
                     ? 'bg-indigo-600 text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -283,7 +283,7 @@ export const DashboardPage: React.FC<Props> = ({ onOpenExcelImport }) => {
               </button>
               <button
                 onClick={() => setViewMode('designer')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap shrink-0 ${
                   activeViewMode === 'designer'
                     ? 'bg-emerald-600 text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -293,7 +293,7 @@ export const DashboardPage: React.FC<Props> = ({ onOpenExcelImport }) => {
               </button>
             </>
           ) : (
-            <span className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold">
+            <span className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold whitespace-nowrap">
               {roleCode === 'sale'
                 ? `Dashboard Cá Nhân Sale — ${currentEmployee?.full_name || ''}`
                 : roleCode === 'designer'
@@ -536,8 +536,8 @@ export const DashboardPage: React.FC<Props> = ({ onOpenExcelImport }) => {
             </div>
           </div>
 
-          <div className="overflow-x-auto bg-white/5 rounded-xl border border-white/10">
-            <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll bg-white/5 rounded-xl border border-white/10">
+            <table className="w-full text-xs text-left min-w-[750px]">
               <thead className="bg-white/10 text-indigo-200 uppercase">
                 <tr>
                   <th className="px-4 py-2.5">Mã DA</th>
@@ -618,28 +618,30 @@ export const DashboardPage: React.FC<Props> = ({ onOpenExcelImport }) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-12 gap-2 items-end h-52 pt-6 px-2 border-b border-slate-200">
-              {monthlySeries.map((item) => {
-                const hRev = Math.round((item.revBefore / maxMonthlyVal) * 100);
-                const hPaid = Math.round((item.paid / maxMonthlyVal) * 100);
-                return (
-                  <div key={item.month} className="flex flex-col items-center gap-1 h-full justify-end group">
-                    <div className="w-full flex items-end justify-center gap-1 h-40">
-                      <div
-                        style={{ height: `${Math.max(4, hRev)}%` }}
-                        title={`T${item.month} - Doanh thu: ${formatCurrency(item.revBefore)}`}
-                        className="w-3 bg-indigo-600 rounded-t transition-all"
-                      />
-                      <div
-                        style={{ height: `${Math.max(4, hPaid)}%` }}
-                        title={`T${item.month} - Thực thu: ${formatCurrency(item.paid)}`}
-                        className="w-3 bg-emerald-500 rounded-t transition-all"
-                      />
+            <div className="overflow-x-auto touch-scroll scrollbar-none pb-2">
+              <div className="grid grid-cols-12 gap-2 items-end h-52 pt-6 px-2 border-b border-slate-200 min-w-[520px]">
+                {monthlySeries.map((item) => {
+                  const hRev = Math.round((item.revBefore / maxMonthlyVal) * 100);
+                  const hPaid = Math.round((item.paid / maxMonthlyVal) * 100);
+                  return (
+                    <div key={item.month} className="flex flex-col items-center gap-1 h-full justify-end group">
+                      <div className="w-full flex items-end justify-center gap-1 h-40">
+                        <div
+                          style={{ height: `${Math.max(4, hRev)}%` }}
+                          title={`T${item.month} - Doanh thu: ${formatCurrency(item.revBefore)}`}
+                          className="w-3 bg-indigo-600 rounded-t transition-all"
+                        />
+                        <div
+                          style={{ height: `${Math.max(4, hPaid)}%` }}
+                          title={`T${item.month} - Thực thu: ${formatCurrency(item.paid)}`}
+                          className="w-3 bg-emerald-500 rounded-t transition-all"
+                        />
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-500">T{item.month}</span>
                     </div>
-                    <span className="text-[11px] font-semibold text-slate-500">T{item.month}</span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
 

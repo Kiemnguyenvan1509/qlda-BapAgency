@@ -18,6 +18,7 @@ import {
   KeyRound,
   CheckCircle2,
   Menu,
+  X,
   RefreshCw,
   Sun,
   Moon,
@@ -85,6 +86,7 @@ const MainShell: React.FC = () => {
 
   const [activeModule, setActiveModule] = useState<ModuleKey>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSupabaseModal, setShowSupabaseModal] = useState(false);
   const [showExcelModal, setShowExcelModal] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
@@ -208,29 +210,49 @@ const MainShell: React.FC = () => {
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-900">
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-xs transition-opacity duration-200"
+        />
+      )}
+
       {/* Sidebar trái */}
       <aside
-        className={`${
-          sidebarOpen ? 'w-64' : 'w-16'
-        } bg-slate-900 text-slate-300 flex flex-col transition-all duration-200 shrink-0`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 lg:static lg:translate-x-0 transform transition-transform duration-200 ease-in-out ${
+          mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:shadow-none'
+        } ${
+          sidebarOpen ? 'lg:w-64' : 'lg:w-16'
+        } bg-slate-900 text-slate-300 flex flex-col shrink-0`}
       >
         <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800">
-          {sidebarOpen && (
-            <div className="flex items-center gap-2.5">
-              <img
-                src="/bap-logo.png"
-                alt="BAPAGENCY"
-                className="w-9 h-9 rounded-xl object-cover border border-slate-700 shrink-0"
-              />
-              <div>
-                <div className="text-xs font-extrabold text-white tracking-wider">BAPAGENCY</div>
-                <div className="text-[10px] text-slate-400">Quản trị Dự án & Nhân sự</div>
-              </div>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <img
+              src="/bap-logo.png"
+              alt="BAPAGENCY"
+              className="w-9 h-9 rounded-xl object-cover border border-slate-700 shrink-0"
+            />
+            <div className={sidebarOpen ? 'block' : 'lg:hidden block'}>
+              <div className="text-xs font-extrabold text-white tracking-wider">BAPAGENCY</div>
+              <div className="text-[10px] text-slate-400">Quản trị Dự án & Nhân sự</div>
             </div>
-          )}
+          </div>
+
+          {/* Nút đóng drawer trên Mobile */}
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            className="lg:hidden p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+            title="Đóng menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {/* Nút co giãn Sidebar trên Desktop */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+            className="hidden lg:block p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+            title={sidebarOpen ? 'Thu gọn sidebar' : 'Mở rộng sidebar'}
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -242,7 +264,10 @@ const MainShell: React.FC = () => {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveModule(item.id)}
+                onClick={() => {
+                  setActiveModule(item.id);
+                  setMobileMenuOpen(false);
+                }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   active
                     ? 'bg-indigo-600 text-white shadow-sm'
@@ -250,11 +275,9 @@ const MainShell: React.FC = () => {
                 }`}
               >
                 {item.icon}
-                {sidebarOpen && (
-                  <span className="truncate">
-                    {item.stt}. {item.label}
-                  </span>
-                )}
+                <span className={sidebarOpen ? 'block truncate' : 'lg:hidden block truncate'}>
+                  {item.stt}. {item.label}
+                </span>
               </button>
             );
           })}
@@ -273,8 +296,8 @@ const MainShell: React.FC = () => {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <Sun className="w-3.5 h-3.5 text-amber-400" />
-              {sidebarOpen && <span>Sáng</span>}
+              <Sun className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className={sidebarOpen ? 'inline' : 'lg:hidden inline'}>Sáng</span>
             </button>
             <button
               type="button"
@@ -286,29 +309,36 @@ const MainShell: React.FC = () => {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <Moon className="w-3.5 h-3.5 text-indigo-300" />
-              {sidebarOpen && <span>Tối</span>}
+              <Moon className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
+              <span className={sidebarOpen ? 'inline' : 'lg:hidden inline'}>Tối</span>
             </button>
           </div>
 
-          {sidebarOpen && isAdmin && (
+          {isAdmin && (
             <button
-              onClick={() => setShowSupabaseModal(true)}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-200 cursor-pointer"
+              onClick={() => {
+                setShowSupabaseModal(true);
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-200 cursor-pointer ${
+                !sidebarOpen ? 'lg:justify-center' : ''
+              }`}
             >
               <span className="flex items-center gap-2">
-                <Database className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Supabase DB</span>
+                <Database className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className={sidebarOpen ? 'inline' : 'lg:hidden inline'}>Supabase DB</span>
               </span>
-              {health.connected && health.schemaReady ? (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
-                  Online
-                </span>
-              ) : (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">
-                  Cấu hình
-                </span>
-              )}
+              <span className={sidebarOpen ? 'inline' : 'lg:hidden inline'}>
+                {health.connected && health.schemaReady ? (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                    Online
+                  </span>
+                ) : (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">
+                    Cấu hình
+                  </span>
+                )}
+              </span>
             </button>
           )}
         </div>
@@ -317,19 +347,30 @@ const MainShell: React.FC = () => {
       {/* Khu vực nội dung chính bên phải (Mục 13.2) */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Topbar */}
-        <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between gap-4 shrink-0">
-          <div>
-            <h1 className="text-base font-extrabold text-slate-900">
-              Phân hệ {currentNav.stt}: {currentNav.label}
-            </h1>
-            <p className="text-[11px] text-slate-500">
-              Phạm vi dữ liệu:{' '}
-              <strong className="text-indigo-600 uppercase">{currentRole?.data_scope || 'system'}</strong> • Vai trò:{' '}
-              <strong>{currentRole?.name || 'Super Admin'}</strong>
-            </p>
+        <header className="h-16 bg-white border-b border-slate-200 px-3 sm:px-4 md:px-6 flex items-center justify-between gap-2 sm:gap-4 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* Hamburger Button trên Mobile */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 cursor-pointer shrink-0"
+              title="Mở menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-extrabold text-slate-900 truncate">
+                Phân hệ {currentNav.stt}: {currentNav.label}
+              </h1>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 truncate hidden xs:block sm:block">
+                Phạm vi dữ liệu:{' '}
+                <strong className="text-indigo-600 uppercase">{currentRole?.data_scope || 'system'}</strong> • Vai trò:{' '}
+                <strong>{currentRole?.name || 'Super Admin'}</strong>
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <button
               onClick={refreshAll}
               title="Đồng bộ dữ liệu mới nhất từ Supabase"
@@ -424,7 +465,7 @@ const MainShell: React.FC = () => {
         </header>
 
         {/* Nội dung phân hệ */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto">
           {activeModule === 'dashboard' && <DashboardPage onOpenExcelImport={() => setShowExcelModal(true)} />}
           {activeModule === 'projects' && <ProjectsPage onOpenExcelImport={() => setShowExcelModal(true)} />}
           {activeModule === 'customers' && <CustomersPage />}

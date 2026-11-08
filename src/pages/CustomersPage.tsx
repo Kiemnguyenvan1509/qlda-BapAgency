@@ -153,8 +153,8 @@ export const CustomersPage: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+        <div className="overflow-x-auto touch-scroll">
+          <table className="w-full text-xs text-left min-w-[850px]">
             <thead className="bg-slate-100 text-slate-600 uppercase border-b border-slate-200">
               <tr>
                 <th className="px-4 py-3">Mã KH</th>
@@ -426,8 +426,8 @@ export const CustomersPage: React.FC = () => {
             <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto text-xs">
               <div>
                 <h4 className="font-bold uppercase text-slate-500 mb-2">Danh sách dự án của khách hàng</h4>
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-left">
+                <div className="border border-slate-200 rounded-xl overflow-x-auto touch-scroll">
+                  <table className="w-full text-left min-w-[550px]">
                     <thead className="bg-slate-100 text-slate-600">
                       <tr>
                         <th className="px-3 py-2">Mã DA</th>

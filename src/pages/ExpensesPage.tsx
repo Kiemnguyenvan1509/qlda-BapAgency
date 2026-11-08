@@ -157,7 +157,8 @@ export const ExpensesPage: React.FC = () => {
 
       {tab === 'list' ? (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[850px]">
             <thead className="bg-slate-100 text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Mã CP</th>
@@ -290,6 +291,7 @@ export const ExpensesPage: React.FC = () => {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       ) : (
         <div className="space-y-6">
@@ -382,7 +384,8 @@ export const ExpensesPage: React.FC = () => {
           </form>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <table className="w-full text-xs text-left">
+            <div className="overflow-x-auto touch-scroll">
+              <table className="w-full text-xs text-left min-w-[750px]">
               <thead className="bg-slate-100 text-slate-600 uppercase">
                 <tr>
                   <th className="px-4 py-3">Kỳ</th>
@@ -419,6 +422,7 @@ export const ExpensesPage: React.FC = () => {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}

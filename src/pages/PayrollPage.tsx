@@ -221,8 +221,8 @@ export const PayrollPage: React.FC = () => {
 
       {/* Bảng lương chi tiết */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+        <div className="overflow-x-auto touch-scroll">
+          <table className="w-full text-xs text-left min-w-[900px]">
             <thead className="bg-slate-100 text-slate-600 uppercase">
               <tr>
                 <th className="px-3 py-3">Nhân viên</th>

@@ -465,8 +465,8 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
 
       {/* Spreadsheet-style Data Table (Mục 2.1: Cập nhật nhanh trực tiếp trên bảng) */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
+        <div className="overflow-x-auto touch-scroll">
+          <table className="w-full text-xs text-left border-collapse min-w-[950px]">
             <thead className="bg-slate-100 text-slate-600 uppercase border-b border-slate-200">
               <tr>
                 <th
@@ -729,15 +729,15 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
 
       {/* Modal Tạo Dự Án Mới */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden my-8">
-            <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
+            <div className="bg-slate-900 text-white px-5 sm:px-6 py-4 flex items-center justify-between shrink-0">
               <h3 className="font-bold text-base">Khởi Tạo Dự Án Mới</h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
                 ✕
               </button>
             </div>
-            <form onSubmit={handleCreateSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto text-xs">
+            <form onSubmit={handleCreateSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto text-xs flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className="block font-semibold text-slate-700 mb-1">Tên dự án *</label>

@@ -199,21 +199,21 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-6xl overflow-hidden my-auto flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4 md:p-6 overflow-y-auto">
+      <div className="bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 w-full max-w-6xl overflow-hidden my-auto flex flex-col h-full sm:h-auto max-h-full sm:max-h-[92vh]">
         {/* Header */}
-        <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-mono text-xs font-bold">
+        <div className="bg-slate-900 text-white px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between shrink-0 gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-mono text-xs font-bold shrink-0">
                 {project.project_code}
               </span>
-              <h2 className="text-lg font-bold">{project.name}</h2>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300">
+              <h2 className="text-base sm:text-lg font-bold truncate">{project.name}</h2>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 shrink-0">
                 {project.status} ({project.progress_percent}%)
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-400 mt-1 line-clamp-2 sm:line-clamp-1">
               Khách hàng: <strong className="text-slate-200">{customer?.name || 'Chưa gắn khách hàng'}</strong> • Loại
               JOB: <strong className="text-slate-200">{project.job_type}</strong> ({project.page_count} trang) •
               Deadline: <strong className="text-slate-200">{formatDate(project.deadline)}</strong>
@@ -221,19 +221,20 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition shrink-0 cursor-pointer"
+            title="Đóng modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* 8 Tabs Navigation */}
-        <div className="bg-slate-100 px-4 pt-2 border-b border-slate-200 flex items-center gap-1 overflow-x-auto shrink-0">
+        <div className="bg-slate-100 px-3 sm:px-4 pt-2 border-b border-slate-200 flex items-center gap-1 overflow-x-auto touch-scroll scrollbar-none shrink-0">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-t-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-t-xl text-xs font-semibold whitespace-nowrap shrink-0 transition cursor-pointer ${
                 activeTab === t.id
                   ? 'bg-white text-indigo-600 border-t border-x border-slate-200 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
@@ -246,7 +247,7 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
         </div>
 
         {/* Tab Content */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
           {/* TAB 1: TỔNG QUAN */}
           {activeTab === 'overview' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -553,8 +554,8 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                     <h4 className="text-xs font-bold uppercase text-slate-500 mb-2">
                       Lịch sử điều chỉnh hợp đồng ({projRevisions.length})
                     </h4>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden">
-                      <table className="w-full text-xs text-left">
+                    <div className="border border-slate-200 rounded-xl overflow-x-auto touch-scroll">
+                      <table className="w-full text-xs text-left min-w-[550px]">
                         <thead className="bg-slate-100 text-slate-600">
                           <tr>
                             <th className="px-3 py-2">Thời gian</th>
@@ -701,8 +702,8 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                   </div>
 
                   {/* Bảng các đợt thanh toán */}
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-xs text-left">
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto touch-scroll">
+                    <table className="w-full text-xs text-left min-w-[620px]">
                       <thead className="bg-slate-100 text-slate-600">
                         <tr>
                           <th className="px-3 py-2.5">Mã GD</th>
@@ -875,8 +876,8 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                 </label>
               </div>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-xs text-left">
+              <div className="border border-slate-200 rounded-xl overflow-x-auto touch-scroll">
+                <table className="w-full text-xs text-left min-w-[650px]">
                   <thead className="bg-slate-100 text-slate-600">
                     <tr>
                       <th className="px-3 py-2.5">Mã CP</th>
@@ -1127,8 +1128,8 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                 </div>
               </div>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-xs text-left">
+              <div className="border border-slate-200 rounded-xl overflow-x-auto touch-scroll">
+                <table className="w-full text-xs text-left min-w-[650px]">
                   <thead className="bg-slate-100 text-slate-600">
                     <tr>
                       <th className="px-3 py-2.5">Thời gian</th>

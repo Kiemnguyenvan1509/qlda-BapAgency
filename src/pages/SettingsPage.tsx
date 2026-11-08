@@ -104,36 +104,36 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto touch-scroll scrollbar-none pb-1 w-full lg:w-auto">
           <button
             onClick={() => setTab('rbac')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'rbac' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'rbac' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             1. Ma trận Phân quyền Đa tầng
           </button>
           <button
             onClick={() => setTab('accounts')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'accounts' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'accounts' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             2. Quản lý Tài khoản Đăng nhập ({users.length})
           </button>
           <button
             onClick={() => setTab('catalogs')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'catalogs' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'catalogs' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             3. Cấu hình Trạng thái, Loại JOB & Tham số
           </button>
           <button
             onClick={() => setTab('audit')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-              tab === 'audit' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition ${
+              tab === 'audit' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             4. Nhật ký hệ thống Audit Logs ({auditLogs.length})
@@ -156,8 +156,8 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
             Cho phép cấu hình phạm vi nhìn thấy dữ liệu (Toàn công ty / Phòng ban / Nhóm / Cá nhân) và bật/tắt ẩn các
             trường tài chính nhạy cảm đối với từng vai trò.
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[700px]">
               <thead className="bg-slate-100 text-slate-600 uppercase">
                 <tr>
                   <th className="px-4 py-3">Vai trò</th>
@@ -224,7 +224,8 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
       {/* TAB 2: TÀI KHOẢN ĐĂNG NHẬP */}
       {tab === 'accounts' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[700px]">
             <thead className="bg-slate-100 text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Tên đăng nhập</th>
@@ -357,6 +358,7 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -590,7 +592,8 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
       {/* TAB 4: NHẬT KÝ HỆ THỐNG AUDIT LOGS (Mục 12.2) */}
       {tab === 'audit' && (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-xs text-left min-w-[700px]">
             <thead className="bg-slate-100 text-slate-600 uppercase">
               <tr>
                 <th className="px-4 py-3">Thời gian</th>
@@ -618,6 +621,7 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
