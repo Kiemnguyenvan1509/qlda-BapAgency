@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { checkSupabaseHealth, SupabaseHealthStatus } from '../lib/supabase';
-import { apiRequest, setApiActorHeaders } from '../services/apiClient';
+import {
+  apiRequest,
+  setApiActorHeaders,
+  LS_LAST_ACTIVE_AT,
+  SS_SESSION_EXPIRED_NOTICE,
+  SESSION_IDLE_TIMEOUT_MS,
+  recordUserActivity,
+} from '../services/apiClient';
 import {
   Role,
   RolePermission,
@@ -351,9 +358,25 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return '';
   }, []);
 
-  const [currentUserId, setCurrentUserId] = useState<string | null>(() =>
-    typeof window !== 'undefined' ? localStorage.getItem(LS_SESSION_USER_ID) : null
-  );
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const savedId = localStorage.getItem(LS_SESSION_USER_ID);
+    if (!savedId) return null;
+
+    const lastActiveStr = localStorage.getItem(LS_LAST_ACTIVE_AT);
+    if (lastActiveStr) {
+      const elapsed = Date.now() - Number(lastActiveStr);
+      if (elapsed >= SESSION_IDLE_TIMEOUT_MS) {
+        localStorage.removeItem(LS_SESSION_USER_ID);
+        localStorage.removeItem(LS_LAST_ACTIVE_AT);
+        sessionStorage.setItem(SS_SESSION_EXPIRED_NOTICE, '1');
+        return null;
+      }
+    } else {
+      localStorage.setItem(LS_LAST_ACTIVE_AT, String(Date.now()));
+    }
+    return savedId;
+  });
 
   // Đồng bộ toàn bộ dữ liệu thông qua Backend MVC Controller: GET /api/bootstrap
   const refreshAll = useCallback(async () => {
@@ -417,12 +440,20 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         const savedId = localStorage.getItem(LS_SESSION_USER_ID);
-        const found = savedId ? loadedUsers.find((u) => u.id === savedId && !u.is_locked) : null;
+        const lastActiveStr = localStorage.getItem(LS_LAST_ACTIVE_AT);
+        const isExpired =
+          lastActiveStr && Date.now() - Number(lastActiveStr) >= SESSION_IDLE_TIMEOUT_MS;
+        const found =
+          savedId && !isExpired ? loadedUsers.find((u) => u.id === savedId && !u.is_locked) : null;
         if (found) {
           setCurrentUserId(found.id);
         } else {
           setCurrentUserId(null);
           localStorage.removeItem(LS_SESSION_USER_ID);
+          localStorage.removeItem(LS_LAST_ACTIVE_AT);
+          if (isExpired) {
+            sessionStorage.setItem(SS_SESSION_EXPIRED_NOTICE, '1');
+          }
         }
       }
     } finally {
@@ -507,16 +538,89 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     if (res.ok && res.user) {
       localStorage.setItem(LS_SESSION_USER_ID, res.user.id);
+      recordUserActivity();
+      sessionStorage.removeItem(SS_SESSION_EXPIRED_NOTICE);
       setCurrentUserId(res.user.id);
       await refreshAll();
     }
     return res;
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem(LS_SESSION_USER_ID);
+    localStorage.removeItem(LS_LAST_ACTIVE_AT);
     setCurrentUserId(null);
-  };
+  }, []);
+
+  // Tự động đăng xuất sau 10 phút không có tương tác hoặc API request trên web
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    // Đảm bảo có mốc thời gian khởi đầu khi phiên đang hoạt động
+    if (!localStorage.getItem(LS_LAST_ACTIVE_AT)) {
+      recordUserActivity();
+    }
+
+    let lastRecorded = 0;
+    const handleUserInteraction = () => {
+      const now = Date.now();
+      // Kiểm tra nếu đã quá 10 phút trước khi ghi nhận thao tác mới (VD: vừa mở máy lại sau khi treo)
+      const prevActive = Number(localStorage.getItem(LS_LAST_ACTIVE_AT) || now);
+      if (now - prevActive >= SESSION_IDLE_TIMEOUT_MS) {
+        sessionStorage.setItem(SS_SESSION_EXPIRED_NOTICE, '1');
+        logout();
+        return;
+      }
+      // Throttle ghi vào localStorage tối đa mỗi 3 giây 1 lần để tối ưu hiệu năng
+      if (now - lastRecorded >= 3000) {
+        lastRecorded = now;
+        recordUserActivity();
+      }
+    };
+
+    const checkInactivity = () => {
+      const activeUserId = localStorage.getItem(LS_SESSION_USER_ID);
+      if (!activeUserId) {
+        setCurrentUserId(null);
+        return;
+      }
+      const lastActiveStr = localStorage.getItem(LS_LAST_ACTIVE_AT);
+      if (!lastActiveStr) return;
+      const elapsed = Date.now() - Number(lastActiveStr);
+      if (elapsed >= SESSION_IDLE_TIMEOUT_MS) {
+        sessionStorage.setItem(SS_SESSION_EXPIRED_NOTICE, '1');
+        logout();
+      }
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        checkInactivity();
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === LS_SESSION_USER_ID && !e.newValue) {
+        setCurrentUserId(null);
+      }
+    };
+
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+    events.forEach((evt) => window.addEventListener(evt, handleUserInteraction, { passive: true }));
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('storage', handleStorageChange);
+
+    const intervalId = window.setInterval(checkInactivity, 5000);
+
+    return () => {
+      events.forEach((evt) => window.removeEventListener(evt, handleUserInteraction));
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('storage', handleStorageChange);
+      window.clearInterval(intervalId);
+    };
+  }, [currentUserId, logout]);
 
   const bootstrapFirstAdmin = async (payload: {
     fullName: string;
@@ -531,6 +635,8 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     if (res.ok && res.user) {
       localStorage.setItem(LS_SESSION_USER_ID, res.user.id);
+      recordUserActivity();
+      sessionStorage.removeItem(SS_SESSION_EXPIRED_NOTICE);
       setCurrentUserId(res.user.id);
       await refreshAll();
     }

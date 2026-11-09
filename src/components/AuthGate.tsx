@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Lock, User, Mail, Phone, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lock, User, Mail, Phone, ArrowRight, Eye, EyeOff, Loader2, Clock } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
+import { SS_SESSION_EXPIRED_NOTICE } from '../services/apiClient';
 
 interface Props {
   onOpenSupabaseSetup: () => void;
@@ -16,7 +17,17 @@ export const AuthGate: React.FC<Props> = () => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser && typeof window !== 'undefined') {
+      const expired = sessionStorage.getItem(SS_SESSION_EXPIRED_NOTICE) === '1';
+      if (expired) {
+        setSessionExpired(true);
+      }
+    }
+  }, [currentUser]);
 
   if (currentUser) return null;
 
@@ -77,6 +88,13 @@ export const AuthGate: React.FC<Props> = () => {
 
         {/* Form Đăng nhập */}
         <form onSubmit={handleSubmit} className="p-8 space-y-4">
+          {sessionExpired && !error && (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 font-semibold flex items-center justify-center gap-2 text-center">
+              <Clock className="w-4 h-4 shrink-0 text-amber-400" />
+              <span>Phiên làm việc đã tự động đăng xuất sau 10 phút không hoạt động. Vui lòng đăng nhập lại!</span>
+            </div>
+          )}
+
           {error && (
             <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 font-semibold text-center">
               {error}
