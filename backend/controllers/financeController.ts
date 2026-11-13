@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { FinanceModel } from '../models/FinanceModel';
 import { ProjectModel } from '../models/ProjectModel';
 import { SystemModel } from '../models/SystemModel';
-import { generateSeqCode, getTodayISO } from '../utils/helpers';
+import { generateSeqCode, getTodayISO, isAdminActor } from '../utils/helpers';
 
 export class FinanceController {
   static async createPayment(req: Request, res: Response) {
@@ -95,6 +95,28 @@ export class FinanceController {
     }
   }
 
+  // Chỉ Admin / Super Admin mới được xóa vĩnh viễn giao dịch thanh toán
+  static async deletePayment(req: Request, res: Response) {
+    try {
+      if (!(await isAdminActor(req))) {
+        res.status(403).json({ ok: false, error: 'Chỉ Admin mới có quyền xóa giao dịch thanh toán.' });
+        return;
+      }
+      const id = String(req.params.id);
+      const oldPay = await FinanceModel.getPaymentById(id);
+      if (!oldPay) {
+        res.status(404).json({ ok: false, error: 'Giao dịch không tồn tại' });
+        return;
+      }
+
+      await FinanceModel.deletePayment(id);
+      await SystemModel.writeAuditLog(req.actor, 'Thanh toán', 'Xóa giao dịch thanh toán', id, oldPay, null);
+      res.json({ ok: true });
+    } catch (err: unknown) {
+      res.status(400).json({ ok: false, error: err instanceof Error ? err.message : 'Lỗi xóa thanh toán' });
+    }
+  }
+
   static async createExpense(req: Request, res: Response) {
     try {
       const payload = req.body;
@@ -146,6 +168,17 @@ export class FinanceController {
       const oldExp = await FinanceModel.getExpenseById(id);
       if (!oldExp) {
         res.status(404).json({ ok: false, error: 'Không tìm thấy khoản chi' });
+        return;
+      }
+
+      // Từ chối => xóa luôn khoản chi (lịch sử duyệt bị xóa theo ON DELETE CASCADE)
+      if (newStatus === 'Từ chối') {
+        await FinanceModel.deleteExpense(id);
+        await SystemModel.writeAuditLog(req.actor, 'Chi phí', 'Từ chối & xóa khoản chi', id, oldExp, {
+          newStatus,
+          comment,
+        });
+        res.json({ ok: true, data: null });
         return;
       }
 

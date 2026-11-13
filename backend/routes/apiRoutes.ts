@@ -47,6 +47,7 @@ router.post('/projects/import-excel', ProjectController.importExcel);
 router.post('/payments', FinanceController.createPayment);
 router.patch('/payments/:id/confirm', FinanceController.confirmPayment);
 router.patch('/payments/:id/cancel-or-refund', FinanceController.cancelOrRefundPayment);
+router.delete('/payments/:id', FinanceController.deletePayment);
 router.post('/expenses', FinanceController.createExpense);
 router.patch('/expenses/:id/status', FinanceController.updateExpenseStatus);
 router.post('/cost-allocations/run', FinanceController.runCostAllocation);

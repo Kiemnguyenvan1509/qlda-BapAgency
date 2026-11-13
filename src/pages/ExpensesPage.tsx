@@ -252,6 +252,12 @@ export const ExpensesPage: React.FC = () => {
                               disabled={updatingExpStatusId === exp.id}
                               onClick={async () => {
                                 if (updatingExpStatusId) return;
+                                if (
+                                  !window.confirm(
+                                    `Từ chối khoản chi "${exp.expense_code}"? Khoản chi sẽ bị xóa vĩnh viễn.`
+                                  )
+                                )
+                                  return;
                                 setUpdatingExpStatusId(exp.id);
                                 try {
                                   await updateExpenseStatus(exp.id, 'Từ chối');

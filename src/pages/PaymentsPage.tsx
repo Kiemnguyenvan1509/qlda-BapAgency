@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, CheckCircle2, Ban, Download, Loader2 } from 'lucide-react';
+import { Plus, CheckCircle2, Ban, Download, Loader2, Trash2 } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { exportToExcel, formatCurrency, formatDate, getTodayISO } from '../lib/format';
 
@@ -13,6 +13,8 @@ export const PaymentsPage: React.FC = () => {
     createPayment,
     confirmPayment,
     cancelOrRefundPayment,
+    deletePayment,
+    currentRole,
   } = useErp();
 
   const [tab, setTab] = useState<'transactions' | 'debt_by_project'>('transactions');
@@ -22,6 +24,8 @@ export const PaymentsPage: React.FC = () => {
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
   const [cancelingPaymentId, setCancelingPaymentId] = useState<string | null>(null);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
+  const isAdmin = currentRole?.code === 'super_admin' || currentRole?.code === 'admin';
 
   const [form, setForm] = useState({
     project_id: '',
@@ -230,7 +234,8 @@ export const PaymentsPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3">{pay.confirmed_by || '—'}</td>
-                      <td className="px-4 py-3 text-right space-x-1">
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex flex-col items-end gap-1.5">
                         {pay.status === 'Chờ xác nhận' && canAction('payments', 'confirm_tx') && (
                           <button
                             disabled={confirmingPaymentId === pay.id || cancelingPaymentId === pay.id}
@@ -243,7 +248,7 @@ export const PaymentsPage: React.FC = () => {
                                 setConfirmingPaymentId(null);
                               }
                             }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                            className="inline-flex items-center justify-center gap-1 w-32 h-7 rounded-lg border border-[#1558C9] bg-[#1558C9] hover:opacity-90 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50 whitespace-nowrap"
                           >
                             {confirmingPaymentId === pay.id ? (
                               <>
@@ -275,7 +280,7 @@ export const PaymentsPage: React.FC = () => {
                                   }
                                 }
                               }}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                              className="inline-flex items-center justify-center gap-1 w-32 h-7 rounded-lg border border-[#D4FF24] bg-[#D4FF24] hover:opacity-90 text-[#030407] text-[11px] font-semibold cursor-pointer disabled:opacity-50 whitespace-nowrap"
                             >
                               {cancelingPaymentId === pay.id ? (
                                 <>
@@ -288,6 +293,45 @@ export const PaymentsPage: React.FC = () => {
                               )}
                             </button>
                           )}
+                        {isAdmin && (
+                          <button
+                            disabled={
+                              deletingPaymentId === pay.id ||
+                              confirmingPaymentId === pay.id ||
+                              cancelingPaymentId === pay.id
+                            }
+                            onClick={async () => {
+                              if (deletingPaymentId || confirmingPaymentId || cancelingPaymentId) return;
+                              if (
+                                !window.confirm(
+                                  `Xóa vĩnh viễn giao dịch "${pay.transaction_code}" (${formatCurrency(
+                                    pay.amount
+                                  )})? Thao tác này không thể hoàn tác.`
+                                )
+                              )
+                                return;
+                              setDeletingPaymentId(pay.id);
+                              try {
+                                const res = await deletePayment(pay.id);
+                                if (!res.ok) window.alert(res.error || 'Không thể xóa giao dịch.');
+                              } finally {
+                                setDeletingPaymentId(null);
+                              }
+                            }}
+                            className="inline-flex items-center justify-center gap-1 w-32 h-7 rounded-lg border border-[#030407] bg-[#030407] hover:opacity-85 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {deletingPaymentId === pay.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" /> Đang xóa...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="w-3 h-3" /> Xóa
+                              </>
+                            )}
+                          </button>
+                        )}
+                        </div>
                       </td>
                     </tr>
                   );

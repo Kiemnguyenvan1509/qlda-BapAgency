@@ -168,6 +168,7 @@ interface ErpContextValue {
   createPayment: (payload: Partial<Payment>) => Promise<{ ok: boolean; error?: string }>;
   confirmPayment: (paymentId: string) => Promise<{ ok: boolean; error?: string }>;
   cancelOrRefundPayment: (paymentId: string, reason: string) => Promise<{ ok: boolean; error?: string }>;
+  deletePayment: (paymentId: string) => Promise<{ ok: boolean; error?: string }>;
 
   createExpense: (payload: Partial<Expense>) => Promise<{ ok: boolean; error?: string }>;
   updateExpenseStatus: (expenseId: string, newStatus: ExpenseStatus, comment?: string) => Promise<{ ok: boolean; error?: string }>;
@@ -989,6 +990,12 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return res;
   };
 
+  const deletePayment = async (paymentId: string) => {
+    const res = await apiRequest(`/payments/${paymentId}`, { method: 'DELETE' });
+    if (res.ok) await refreshAll();
+    return res;
+  };
+
   const createExpense = async (payload: Partial<Expense>) => {
     const res = await apiRequest('/expenses', {
       method: 'POST',
@@ -1356,6 +1363,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createPayment,
         confirmPayment,
         cancelOrRefundPayment,
+        deletePayment,
         createExpense,
         updateExpenseStatus,
         runCostAllocation,

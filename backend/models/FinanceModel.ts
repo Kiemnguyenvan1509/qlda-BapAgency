@@ -22,6 +22,12 @@ export class FinanceModel {
     return data;
   }
 
+  static async deletePayment(id: string) {
+    const db = requireSupabaseDb();
+    const { error } = await db.from('payments').delete().eq('id', id);
+    if (error) throw error;
+  }
+
   static async updatePayment(id: string, payload: Record<string, unknown>) {
     const db = requireSupabaseDb();
     const { data, error } = await db.from('payments').update(payload).eq('id', id).select('*').single();
@@ -62,6 +68,12 @@ export class FinanceModel {
     const { data, error } = await db.from('expenses').update(payload).eq('id', id).select('*').single();
     if (error) throw error;
     return data;
+  }
+
+  static async deleteExpense(id: string) {
+    const db = requireSupabaseDb();
+    const { error } = await db.from('expenses').delete().eq('id', id);
+    if (error) throw error;
   }
 
   static async createExpenseApproval(payload: Record<string, unknown>) {
