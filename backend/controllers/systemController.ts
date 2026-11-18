@@ -257,6 +257,71 @@ export class SystemController {
     }
   }
 
+  static async createRole(req: Request, res: Response) {
+    try {
+      if (!(await isAdminActor(req))) {
+        res.status(403).json({
+          ok: false,
+          error: 'Chỉ tài khoản Admin mới được phép thêm vai trò hệ thống.',
+        });
+        return;
+      }
+
+      const rawName = String(req.body.name || '').trim();
+      const rawCode = String(req.body.code || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9_]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+      const dataScope = ['system', 'department', 'team', 'personal'].includes(req.body.data_scope)
+        ? req.body.data_scope
+        : 'personal';
+
+      if (!rawName || !rawCode) {
+        res.status(400).json({
+          ok: false,
+          error: 'Vui lòng nhập đầy đủ Tên vai trò và Mã vai trò (code).',
+        });
+        return;
+      }
+
+      const existingRoles = await SystemModel.getRoles();
+      if (existingRoles.some((r: { code: string }) => r.code.toLowerCase() === rawCode)) {
+        res.status(400).json({
+          ok: false,
+          error: `Mã vai trò "${rawCode}" đã tồn tại trong hệ thống.`,
+        });
+        return;
+      }
+
+      const created = await SystemModel.createRole({
+        code: rawCode,
+        name: rawName,
+        data_scope: dataScope,
+        description: req.body.description ? String(req.body.description).trim() : `Vai trò ${rawName}`,
+      });
+
+      await SystemModel.writeAuditLog(
+        req.actor,
+        'Phân quyền',
+        `Thêm vai trò hệ thống mới: ${rawName} (${rawCode})`,
+        created.id,
+        null,
+        created
+      );
+
+      res.json({ ok: true, data: created });
+    } catch (err: unknown) {
+      res.status(400).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Không thể thêm vai trò hệ thống.',
+      });
+    }
+  }
+
   static async updateRoleConfig(req: Request, res: Response) {
     try {
       if (!(await isAdminActor(req))) {

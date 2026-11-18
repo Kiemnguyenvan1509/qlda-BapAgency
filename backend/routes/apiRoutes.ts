@@ -15,6 +15,7 @@ router.get('/system/client-ip', SystemController.getClientIp);
 router.post('/config/supabase', SystemController.saveSupabaseConfig);
 router.delete('/config/supabase', SystemController.clearSupabaseConfig);
 router.get('/bootstrap', SystemController.getBootstrapData);
+router.post('/roles', SystemController.createRole);
 router.put('/roles/:id', SystemController.updateRoleConfig);
 router.put('/settings', SystemController.saveSetting);
 router.patch('/notifications/:id/read', SystemController.markNotificationRead);

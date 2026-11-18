@@ -4,11 +4,43 @@ import { useErp } from '../context/ErpContext';
 import { exportToExcel, formatCurrency, formatDate, formatDateTime } from '../lib/format';
 
 export const RevenuePage: React.FC = () => {
-  const { scopedProjects, customers, employees, contractRevisions, getProjectFinancials } = useErp();
+  const { scopedProjects, customers, employees, departments, users, roles, contractRevisions, getProjectFinancials } =
+    useErp();
 
   const [tab, setTab] = useState<'contracts' | 'staff_revenue' | 'revisions'>('contracts');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  const isItDepartment = (deptId?: string | null) => {
+    if (!deptId) return false;
+    const d = departments.find((item) => item.id === deptId);
+    if (!d) return false;
+    const name = d.name?.trim().toLowerCase() || '';
+    const code = d.code?.trim().toLowerCase() || '';
+    return (
+      code === 'it' ||
+      code.includes('_it') ||
+      code.includes('it_') ||
+      name === 'it' ||
+      name.includes('phòng it') ||
+      name.includes('phong it') ||
+      /\bit\b/.test(name)
+    );
+  };
+
+  const isItEmployee = (empId?: string | null) => {
+    if (!empId) return false;
+    const e = employees.find((item) => item.id === empId);
+    if (!e) return false;
+    const code = e.role_code?.toLowerCase() || '';
+    if (code === 'it') return true;
+    const u = users.find((user) => user.employee_id === e.id);
+    const r = roles.find((role) => role.id === u?.role_id);
+    if (r?.code?.toLowerCase() === 'it') return true;
+    if (isItDepartment(e.department_id)) return true;
+    const pos = e.position?.toLowerCase() || '';
+    return /\bit\b/.test(pos) || pos.includes('lập trình') || pos.includes('kỹ thuật');
+  };
 
   const activeProjects = useMemo(() => {
     return scopedProjects.filter((p) => {
@@ -33,7 +65,7 @@ export const RevenuePage: React.FC = () => {
     return { beforeTax, vat, afterTax };
   }, [activeProjects]);
 
-  // Báo cáo doanh thu theo Sale & Designer (Quy tắc 4: cả Sale và Designer được ghi nhận toàn bộ 100% doanh thu của dự án)
+  // Báo cáo doanh thu theo Sale, Designer & IT (Quy tắc 4: cả Sale và Designer/IT được ghi nhận toàn bộ 100% doanh thu của dự án)
   const staffRevenue = useMemo(() => {
     const saleRows: Array<{
       id: string;
@@ -46,9 +78,27 @@ export const RevenuePage: React.FC = () => {
       debt: number;
     }> = [];
     const designerRows: typeof saleRows = [];
+    const itRows: typeof saleRows = [];
 
     const saleMap = new Map<string, (typeof saleRows)[0]>();
     const desMap = new Map<string, (typeof saleRows)[0]>();
+    const itMap = new Map<string, (typeof saleRows)[0]>();
+
+    // Khởi tạo sẵn danh sách nhân sự thuộc vai trò IT / Phòng IT để luôn hiển thị trên bảng
+    for (const emp of employees) {
+      if (emp.work_status !== 'Đã nghỉ việc' && isItEmployee(emp.id)) {
+        itMap.set(emp.id, {
+          id: emp.id,
+          code: emp.employee_code || 'IT',
+          name: emp.full_name,
+          projectCount: 0,
+          beforeTax: 0,
+          afterTax: 0,
+          confirmedPaid: 0,
+          debt: 0,
+        });
+      }
+    }
 
     for (const p of activeProjects) {
       const f = getProjectFinancials(p);
@@ -74,10 +124,12 @@ export const RevenuePage: React.FC = () => {
 
       if (p.designer_id) {
         const emp = employees.find((e) => e.id === p.designer_id);
-        const cur = desMap.get(p.designer_id) || {
+        const belongsToIt = isItDepartment(p.department_id) || isItEmployee(p.designer_id);
+        const targetMap = belongsToIt ? itMap : desMap;
+        const cur = targetMap.get(p.designer_id) || {
           id: p.designer_id,
-          code: emp?.employee_code || 'DES',
-          name: emp?.full_name || 'Designer',
+          code: emp?.employee_code || (belongsToIt ? 'IT' : 'DES'),
+          name: emp?.full_name || (belongsToIt ? 'Nhân viên IT' : 'Designer'),
           projectCount: 0,
           beforeTax: 0,
           afterTax: 0,
@@ -89,17 +141,19 @@ export const RevenuePage: React.FC = () => {
         cur.afterTax += f.revenueAfterTax;
         cur.confirmedPaid += f.confirmedPayments;
         cur.debt += f.remainingDebt;
-        desMap.set(p.designer_id, cur);
+        targetMap.set(p.designer_id, cur);
       }
     }
 
     saleMap.forEach((v) => saleRows.push(v));
     desMap.forEach((v) => designerRows.push(v));
+    itMap.forEach((v) => itRows.push(v));
     return {
       sales: saleRows.sort((a, b) => b.beforeTax - a.beforeTax),
       designers: designerRows.sort((a, b) => b.beforeTax - a.beforeTax),
+      itStaff: itRows.sort((a, b) => b.beforeTax - a.beforeTax),
     };
-  }, [activeProjects, employees, getProjectFinancials]);
+  }, [activeProjects, employees, departments, users, roles, getProjectFinancials]);
 
   return (
     <div className="space-y-4">
@@ -151,7 +205,7 @@ export const RevenuePage: React.FC = () => {
               tab === 'staff_revenue' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
             }`}
           >
-            2. Doanh thu ghi nhận theo Sale & Designer
+            2. Doanh thu ghi nhận theo Sale, Designer & IT
           </button>
           <button
             onClick={() => setTab('revisions')}
@@ -248,7 +302,10 @@ export const RevenuePage: React.FC = () => {
                         </td>
                         <td className="px-4 py-3">
                           <div>Sale: {sale?.full_name || '—'}</div>
-                          <div className="text-emerald-700">Designer: {des?.full_name || '—'}</div>
+                          <div className="text-emerald-700">
+                            {isItDepartment(p.department_id) || isItEmployee(p.designer_id) ? 'IT' : 'Designer'}:{' '}
+                            {des?.full_name || '—'}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-slate-900">
                           {formatCurrency(p.revenue_before_tax)}
@@ -332,6 +389,51 @@ export const RevenuePage: React.FC = () => {
                       <td className="px-3 py-2.5 text-right text-rose-600">{formatCurrency(d.debt)}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Bảng Doanh thu Nhân viên IT */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden lg:col-span-2">
+            <div className="px-4 py-3 bg-cyan-50 border-b border-cyan-100 font-bold text-xs text-cyan-950">
+              Doanh Thu Ghi Nhận Theo Nhân Viên IT Phụ Trách (100% Giá Trị Dự Án)
+            </div>
+            <div className="overflow-x-auto touch-scroll">
+              <table className="w-full text-xs text-left min-w-[500px]">
+                <thead className="bg-slate-100 text-slate-600">
+                  <tr>
+                    <th className="px-3 py-2.5">Nhân sự IT</th>
+                    <th className="px-3 py-2.5 text-center">Số DA</th>
+                    <th className="px-3 py-2.5 text-right">DT Trước thuế</th>
+                    <th className="px-3 py-2.5 text-right">Thực thu DA</th>
+                    <th className="px-3 py-2.5 text-right">Công nợ DA</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {staffRevenue.itStaff.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
+                        Chưa có dữ liệu nhân sự hoặc dự án IT
+                      </td>
+                    </tr>
+                  ) : (
+                    staffRevenue.itStaff.map((it) => (
+                      <tr key={it.id}>
+                        <td className="px-3 py-2.5 font-semibold">
+                          [{it.code}] {it.name}
+                        </td>
+                        <td className="px-3 py-2.5 text-center font-bold">{it.projectCount}</td>
+                        <td className="px-3 py-2.5 text-right font-bold text-cyan-700">
+                          {formatCurrency(it.beforeTax)}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-emerald-700">
+                          {formatCurrency(it.confirmedPaid)}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-rose-600">{formatCurrency(it.debt)}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

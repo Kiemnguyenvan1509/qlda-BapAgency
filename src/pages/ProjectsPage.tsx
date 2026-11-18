@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   ArrowUpDown,
   Loader2,
+  ChevronDown,
 } from 'lucide-react';
 import { useErp } from '../context/ErpContext';
 import { Project } from '../types/database';
@@ -97,6 +98,24 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
     });
   }, [employees, users, roles]);
 
+  // Nhận diện phòng ban có phải là Phòng IT hay không
+  const isItDepartment = (deptId?: string | null) => {
+    if (!deptId) return false;
+    const d = departments.find((item) => item.id === deptId);
+    if (!d) return false;
+    const name = d.name?.trim().toLowerCase() || '';
+    const code = d.code?.trim().toLowerCase() || '';
+    return (
+      code === 'it' ||
+      code.includes('_it') ||
+      code.includes('it_') ||
+      name === 'it' ||
+      name.includes('phòng it') ||
+      name.includes('phong it') ||
+      /\bit\b/.test(name)
+    );
+  };
+
   // Lọc chỉ những nhân sự thuộc vai trò Designer
   const designerEmployees = useMemo(() => {
     return employees.filter((e) => {
@@ -110,11 +129,26 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
     });
   }, [employees, users, roles]);
 
+  // Lọc chỉ những nhân sự thuộc vai trò IT hoặc Phòng IT
+  const itEmployees = useMemo(() => {
+    return employees.filter((e) => {
+      const code = e.role_code?.toLowerCase() || '';
+      if (code === 'it') return true;
+      const u = users.find((user) => user.employee_id === e.id);
+      const r = roles.find((role) => role.id === u?.role_id);
+      if (r?.code?.toLowerCase() === 'it') return true;
+      if (isItDepartment(e.department_id)) return true;
+      const pos = e.position?.toLowerCase() || '';
+      return /\bit\b/.test(pos) || pos.includes('lập trình') || pos.includes('kỹ thuật');
+    });
+  }, [employees, users, roles, departments]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [jobFilter, setJobFilter] = useState('all');
   const [saleFilter, setSaleFilter] = useState('all');
   const [designerFilter, setDesignerFilter] = useState('all');
+  const [itFilter, setItFilter] = useState('all');
   const [showArchived, setShowArchived] = useState(false);
 
   const [sortField, setSortField] = useState<'created_at' | 'deadline' | 'revenue_before_tax' | 'project_code'>('created_at');
@@ -139,11 +173,49 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
 
   // Modal tạo dự án mới
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [custDropdownOpen, setCustDropdownOpen] = useState(false);
+  const [custSearchQuery, setCustSearchQuery] = useState('');
+  const custDropdownRef = useRef<HTMLDivElement>(null);
+  const custSearchInputRef = useRef<HTMLInputElement>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [actionError, setActionError] = useState('');
   const [isCreatingProj, setIsCreatingProj] = useState(false);
   const [actionProjId, setActionProjId] = useState<string | null>(null);
   const creatingProjLock = useRef(false);
+
+  const normalizeSearchText = (str?: string | null) =>
+    (str || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .trim();
+
+  const filteredModalCustomers = useMemo(() => {
+    const q = normalizeSearchText(custSearchQuery);
+    if (!q) return customers;
+    return customers.filter((c) => {
+      const target = normalizeSearchText(`${c.customer_code} ${c.name} ${c.phone || ''} ${c.tax_code || ''}`);
+      return target.includes(q);
+    });
+  }, [customers, custSearchQuery]);
+
+  useEffect(() => {
+    if (!custDropdownOpen) return;
+    const timer = window.setTimeout(() => {
+      custSearchInputRef.current?.focus();
+    }, 50);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (custDropdownRef.current && !custDropdownRef.current.contains(e.target as Node)) {
+        setCustDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [custDropdownOpen]);
 
   // Form state tạo dự án
   const [newProj, setNewProj] = useState({
@@ -178,6 +250,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
         if (jobFilter !== 'all' && p.job_type !== jobFilter) return false;
         if (saleFilter !== 'all' && p.sale_id !== saleFilter) return false;
         if (designerFilter !== 'all' && p.designer_id !== designerFilter) return false;
+        if (itFilter !== 'all' && p.designer_id !== itFilter) return false;
         if (searchTerm.trim()) {
           const q = searchTerm.toLowerCase();
           const cust = customers.find((c) => c.id === p.customer_id);
@@ -199,7 +272,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
         if (vA > vB) return sortAsc ? 1 : -1;
         return 0;
       });
-  }, [scopedProjects, showArchived, statusFilter, jobFilter, saleFilter, designerFilter, searchTerm, sortField, sortAsc, customers]);
+  }, [scopedProjects, showArchived, statusFilter, jobFilter, saleFilter, designerFilter, itFilter, searchTerm, sortField, sortAsc, customers]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pagedProjects = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -233,14 +306,14 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
         ...(hideFinance
           ? {}
           : {
-              'Doanh thu trước thuế': fin.revenueBeforeTax,
-              'Tiền VAT': fin.vatAmount,
-              'Doanh thu sau thuế': fin.revenueAfterTax,
-              'Thực thu đã xác nhận': fin.confirmedPayments,
-              'Công nợ còn lại': fin.remainingDebt,
-              'Chi phí trực tiếp': fin.directExpenses,
-              'Lợi nhuận gộp': fin.grossProfit,
-            }),
+            'Doanh thu trước thuế': fin.revenueBeforeTax,
+            'Tiền VAT': fin.vatAmount,
+            'Doanh thu sau thuế': fin.revenueAfterTax,
+            'Thực thu đã xác nhận': fin.confirmedPayments,
+            'Công nợ còn lại': fin.remainingDebt,
+            'Chi phí trực tiếp': fin.directExpenses,
+            'Lợi nhuận gộp': fin.grossProfit,
+          }),
       };
     });
     exportToExcel(rows, 'Danh_Sach_Du_An', 'DuAn');
@@ -351,7 +424,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                     jobType: 'Loại JOB',
                     pages: 'Số trang',
                     sale: 'Sale phụ trách',
-                    designer: 'Designer phụ trách',
+                    designer: 'Nhận dự án',
                     revenue: 'Doanh thu HĐ',
                     paidAndDebt: 'Thực thu & Công nợ',
                     deadline: 'Deadline',
@@ -429,6 +502,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
             value={designerFilter}
             onChange={(e) => {
               setDesignerFilter(e.target.value);
+              if (e.target.value !== 'all') setItFilter('all');
               setPage(1);
             }}
             className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"
@@ -441,13 +515,29 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
             ))}
           </select>
 
+          <select
+            value={itFilter}
+            onChange={(e) => {
+              setItFilter(e.target.value);
+              if (e.target.value !== 'all') setDesignerFilter('all');
+              setPage(1);
+            }}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"
+          >
+            <option value="all">Tất cả IT ({itEmployees.length})</option>
+            {itEmployees.map((e) => (
+              <option key={e.id} value={e.id}>
+                IT: {e.full_name}
+              </option>
+            ))}
+          </select>
+
           <button
             onClick={() => setShowArchived(!showArchived)}
-            className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium cursor-pointer ${
-              showArchived
+            className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium cursor-pointer ${showArchived
                 ? 'bg-amber-100 border-amber-300 text-amber-900'
                 : 'border-slate-300 text-slate-600 hover:bg-slate-50'
-            }`}
+              }`}
           >
             {showArchived ? 'Đang xem: Dự án Lưu trữ' : 'Xem dự án Lưu trữ'}
           </button>
@@ -482,7 +572,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                 {visibleCols.jobType && <th className="px-3 py-3 font-bold">Loại JOB</th>}
                 {visibleCols.pages && <th className="px-3 py-3 font-bold text-center">Trang</th>}
                 {visibleCols.sale && <th className="px-3 py-3 font-bold">Sale chính</th>}
-                {visibleCols.designer && <th className="px-3 py-3 font-bold">Designer chính</th>}
+                {visibleCols.designer && <th className="px-3 py-3 font-bold">Nhận dự án</th>}
                 {!hideFinance && visibleCols.revenue && (
                   <th
                     onClick={() => handleSort('revenue_before_tax')}
@@ -750,20 +840,108 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                     className="w-full px-3 py-2 rounded-xl border border-slate-300"
                   />
                 </div>
-                <div>
+                <div className="relative" ref={custDropdownRef}>
                   <label className="block font-semibold text-slate-700 mb-1">Khách hàng</label>
-                  <select
-                    value={newProj.customer_id}
-                    onChange={(e) => setNewProj({ ...newProj, customer_id: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white"
+                  <button
+                    type="button"
+                    onClick={() => setCustDropdownOpen((prev) => !prev)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white flex items-center justify-between gap-2 text-left cursor-pointer hover:border-indigo-500 transition"
                   >
-                    <option value="">-- Chọn khách hàng --</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        [{c.customer_code}] {c.name}
-                      </option>
-                    ))}
-                  </select>
+                    <span className="truncate">
+                      {(() => {
+                        const selectedCust = customers.find((c) => c.id === newProj.customer_id);
+                        return selectedCust
+                          ? `[${selectedCust.customer_code}] ${selectedCust.name}`
+                          : '-- Chọn khách hàng --';
+                      })()}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                  </button>
+
+                  {custDropdownOpen && (
+                    <div className="absolute left-0 right-0 mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 z-30 overflow-hidden">
+                      <div className="p-2 border-b border-slate-100 bg-slate-50">
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                          <input
+                            ref={custSearchInputRef}
+                            type="text"
+                            value={custSearchQuery}
+                            onChange={(e) => setCustSearchQuery(e.target.value)}
+                            placeholder="Nhập tên, mã KH, SĐT để tìm nhanh..."
+                            className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:border-indigo-600 outline-none"
+                          />
+                          {custSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCustSearchQuery('');
+                                custSearchInputRef.current?.focus();
+                              }}
+                              className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewProj({ ...newProj, customer_id: '' });
+                            setCustDropdownOpen(false);
+                            setCustSearchQuery('');
+                          }}
+                          className={`w-full px-3 py-2 text-left text-xs hover:bg-indigo-50 cursor-pointer ${
+                            !newProj.customer_id ? 'bg-indigo-600 text-white hover:bg-indigo-600 font-semibold' : 'text-slate-600'
+                          }`}
+                        >
+                          -- Chọn khách hàng --
+                        </button>
+
+                        {filteredModalCustomers.length === 0 ? (
+                          <div className="px-3 py-4 text-center text-xs text-slate-400">
+                            Không tìm thấy khách hàng phù hợp
+                          </div>
+                        ) : (
+                          filteredModalCustomers.map((c) => {
+                            const isSelected = newProj.customer_id === c.id;
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  setNewProj({ ...newProj, customer_id: c.id });
+                                  setCustDropdownOpen(false);
+                                  setCustSearchQuery('');
+                                }}
+                                className={`w-full px-3 py-2 text-left text-xs hover:bg-indigo-50 cursor-pointer flex items-center justify-between gap-2 ${
+                                  isSelected
+                                    ? 'bg-indigo-600 text-white hover:bg-indigo-600 font-semibold'
+                                    : 'text-slate-800'
+                                }`}
+                              >
+                                <span className="truncate">
+                                  [{c.customer_code}] {c.name}
+                                </span>
+                                {c.phone && (
+                                  <span
+                                    className={`text-[10px] shrink-0 ${
+                                      isSelected ? 'text-indigo-200' : 'text-slate-400'
+                                    }`}
+                                  >
+                                    {c.phone}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -863,19 +1041,34 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Designer phụ trách chính (Ghi nhận 100% DT)
+                    {isItDepartment(newProj.department_id)
+                      ? 'Nhân viên IT phụ trách (Ghi nhận 100% DT)'
+                      : 'Designer phụ trách chính (Ghi nhận 100% DT)'}
                   </label>
                   <select
                     value={newProj.designer_id}
                     onChange={(e) => setNewProj({ ...newProj, designer_id: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white"
                   >
-                    <option value="">-- Chọn Designer ({designerEmployees.length}) --</option>
-                    {designerEmployees.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        [{e.employee_code}] {e.full_name}
-                      </option>
-                    ))}
+                    {isItDepartment(newProj.department_id) ? (
+                      <>
+                        <option value="">-- Chọn Nhân viên IT ({itEmployees.length}) --</option>
+                        {itEmployees.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            [{e.employee_code}] {e.full_name}
+                          </option>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        <option value="">-- Chọn Designer ({designerEmployees.length}) --</option>
+                        {designerEmployees.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            [{e.employee_code}] {e.full_name}
+                          </option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -883,7 +1076,16 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                   <label className="block font-semibold text-slate-700 mb-1">Phòng ban phụ trách</label>
                   <select
                     value={newProj.department_id}
-                    onChange={(e) => setNewProj({ ...newProj, department_id: e.target.value })}
+                    onChange={(e) => {
+                      const nextDeptId = e.target.value;
+                      const nextPool = isItDepartment(nextDeptId) ? itEmployees : designerEmployees;
+                      const keepCurrent = nextPool.some((emp) => emp.id === newProj.designer_id);
+                      setNewProj({
+                        ...newProj,
+                        department_id: nextDeptId,
+                        designer_id: keepCurrent ? newProj.designer_id : '',
+                      });
+                    }}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white"
                   >
                     <option value="">-- Chọn Phòng ban --</option>

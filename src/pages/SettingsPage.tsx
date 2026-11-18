@@ -30,6 +30,7 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
     officeAllowedIps,
     currentClientIp,
     auditLogs,
+    createRole,
     updateRoleConfig,
     toggleUserLock,
     adminResetUserPassword,
@@ -75,6 +76,55 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
   const [newOfficeIp, setNewOfficeIp] = useState('');
   const [vatInput, setVatInput] = useState(defaultVatRate);
   const [workDaysInput, setWorkDaysInput] = useState(standardWorkDays);
+
+  // State thêm Vai trò hệ thống mới (Chỉ dành cho Admin)
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleCode, setNewRoleCode] = useState('');
+  const [newRoleScope, setNewRoleScope] = useState<DataScope>('personal');
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
+  const [roleFeedback, setRoleFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+
+  const toSlugCode = (val: string) =>
+    val
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/[^a-z0-9_]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+
+  const handleCreateSystemRole = async () => {
+    if (!isAdmin || isCreatingRole) return;
+    setRoleFeedback(null);
+    const cleanName = newRoleName.trim();
+    const cleanCode = toSlugCode(newRoleCode || newRoleName);
+    if (!cleanName || !cleanCode) {
+      setRoleFeedback({ type: 'error', text: 'Vui lòng nhập Tên vai trò và Mã vai trò (code).' });
+      return;
+    }
+    setIsCreatingRole(true);
+    try {
+      const res = await createRole({
+        name: cleanName,
+        code: cleanCode,
+        data_scope: newRoleScope,
+      });
+      if (!res.ok) {
+        setRoleFeedback({ type: 'error', text: res.error || 'Không thể thêm vai trò mới.' });
+      } else {
+        setRoleFeedback({
+          type: 'success',
+          text: `Đã thêm vai trò "${cleanName} (${cleanCode})" thành công!`,
+        });
+        setNewRoleName('');
+        setNewRoleCode('');
+        setNewRoleScope('personal');
+      }
+    } finally {
+      setIsCreatingRole(false);
+    }
+  };
 
   const handleToggleHiddenField = async (roleId: string, currentHidden: string[], fieldKey: string) => {
     if (!isAdmin || updatingRoleId) return;
@@ -404,6 +454,92 @@ export const SettingsPage: React.FC<Props> = ({ onOpenSupabaseModal }) => {
                 </span>
               ))}
             </div>
+
+            {/* Danh sách & Thêm Vai trò Hệ thống (Chỉ Admin mới có quyền thêm) */}
+            {isAdmin && (
+              <div className="pt-4 mt-2 border-t border-slate-200 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="font-bold text-sm text-slate-900">
+                    Danh sách Vai trò Hệ thống ({roles.length})
+                  </h4>
+                  <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-semibold text-[11px]">
+                    Chỉ Admin được thêm
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Thêm vai trò mới để gán cho nhân sự ở mục <strong>Vai trò hệ thống *</strong> và phân quyền tại Ma trận Phân quyền Đa tầng.
+                </p>
+
+                {roleFeedback && (
+                  <div
+                    className={`p-2.5 rounded-xl border text-xs font-semibold ${
+                      roleFeedback.type === 'error'
+                        ? 'bg-rose-50 border-rose-200 text-rose-700'
+                        : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    }`}
+                  >
+                    {roleFeedback.text}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={newRoleName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const prevAuto = toSlugCode(newRoleName);
+                      setNewRoleName(val);
+                      if (!newRoleCode || newRoleCode === prevAuto) {
+                        setNewRoleCode(toSlugCode(val));
+                      }
+                    }}
+                    placeholder="Tên vai trò (VD: Marketing)..."
+                    className="px-3 py-2 rounded-xl border border-slate-300"
+                  />
+                  <input
+                    type="text"
+                    value={newRoleCode}
+                    onChange={(e) => setNewRoleCode(toSlugCode(e.target.value))}
+                    placeholder="Mã vai trò (VD: marketing)..."
+                    className="px-3 py-2 rounded-xl border border-slate-300 font-mono"
+                  />
+                </div>
+
+                <div className="flex flex-wrap sm:flex-nowrap gap-2">
+                  <select
+                    value={newRoleScope}
+                    onChange={(e) => setNewRoleScope(e.target.value as DataScope)}
+                    className="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white font-semibold"
+                    title="Phạm vi dữ liệu mặc định của vai trò"
+                  >
+                    <option value="personal">Phạm vi mặc định: Cá nhân (Personal)</option>
+                    <option value="team">Phạm vi mặc định: Nhóm (Team)</option>
+                    <option value="department">Phạm vi mặc định: Phòng ban (Department)</option>
+                    <option value="system">Phạm vi mặc định: Toàn công ty (System)</option>
+                  </select>
+                  <button
+                    disabled={isCreatingRole}
+                    onClick={handleCreateSystemRole}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5 shrink-0"
+                  >
+                    {isCreatingRole ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '+ Thêm vai trò'}
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {roles.map((r) => (
+                    <span
+                      key={r.id}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-800 font-semibold flex items-center gap-1.5"
+                    >
+                      <span>{r.name}</span>
+                      <span className="font-mono text-[11px] text-indigo-500">({r.code})</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl p-5 border border-slate-200 space-y-3">

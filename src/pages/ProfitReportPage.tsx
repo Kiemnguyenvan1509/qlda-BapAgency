@@ -110,7 +110,7 @@ export const ProfitReportPage: React.FC = () => {
               tab === 'by_staff' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
             }`}
           >
-            3. Lợi nhuận theo Sale & Designer
+            3. Lợi nhuận theo Nhân viên
           </button>
         </div>
 

@@ -16,6 +16,29 @@ export class SystemModel {
     return data || [];
   }
 
+  static async createRole(payload: {
+    code: string;
+    name: string;
+    data_scope?: string;
+    description?: string;
+  }) {
+    const db = requireSupabaseDb();
+    const { data, error } = await db
+      .from('roles')
+      .insert({
+        code: payload.code,
+        name: payload.name,
+        data_scope: payload.data_scope || 'personal',
+        hidden_fields: [],
+        description: payload.description || 'Vai trò hệ thống',
+        is_system: false,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   static async updateRoleConfig(roleId: string, dataScope: string, hiddenFields: string[]) {
     const db = requireSupabaseDb();
     const { data, error } = await db

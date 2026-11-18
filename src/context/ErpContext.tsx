@@ -251,6 +251,11 @@ interface ErpContextValue {
     unlockReason?: string
   ) => Promise<{ ok: boolean; error?: string }>;
 
+  createRole: (payload: {
+    name: string;
+    code: string;
+    data_scope?: Role['data_scope'];
+  }) => Promise<{ ok: boolean; error?: string }>;
   updateRoleConfig: (roleId: string, dataScope: Role['data_scope'], hiddenFields: string[]) => Promise<void>;
   saveSystemSetting: (key: string, value: unknown) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
@@ -1263,6 +1268,19 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ======================== SYSTEM CONTROLLER CALLS ========================
+  const createRole = async (payload: {
+    name: string;
+    code: string;
+    data_scope?: Role['data_scope'];
+  }) => {
+    const res = await apiRequest('/roles', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) await refreshAll();
+    return res;
+  };
+
   const updateRoleConfig = async (roleId: string, dataScope: Role['data_scope'], hiddenFields: string[]) => {
     await apiRequest(`/roles/${roleId}`, {
       method: 'PUT',
@@ -1389,6 +1407,7 @@ export const ErpProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         generateMonthlyPayroll,
         updatePayrollDetailItem,
         changePayrollStatus,
+        createRole,
         updateRoleConfig,
         saveSystemSetting,
         markNotificationRead,
