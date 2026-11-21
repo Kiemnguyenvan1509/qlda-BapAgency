@@ -156,6 +156,25 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
 
   const isProjectItDept = isItDepartment(project?.department_id);
 
+  const isMarketingDepartment = (deptId?: string | null) => {
+    if (!deptId) return false;
+    const d = departments.find((item) => item.id === deptId);
+    if (!d) return false;
+    const name = d.name?.trim().toLowerCase() || '';
+    const code = d.code?.trim().toLowerCase() || '';
+    return (
+      code === 'marketing' ||
+      code === 'mkt' ||
+      code.includes('marketing') ||
+      code.includes('mkt') ||
+      name.includes('marketing') ||
+      name.includes('mkt') ||
+      name.includes('maketing')
+    );
+  };
+
+  const isProjectMarketingDept = isMarketingDepartment(project?.department_id);
+
   const designerEmployees = useMemo(() => {
     return employees.filter((e) => {
       const code = e.role_code?.toLowerCase() || '';
@@ -181,6 +200,20 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
     });
   }, [employees, users, roles, departments]);
 
+  const marketingEmployees = useMemo(() => {
+    return employees.filter((e) => {
+      const code = e.role_code?.toLowerCase() || '';
+      if (code === 'marketing' || code === 'mkt') return true;
+      const u = users.find((user) => user.employee_id === e.id);
+      const r = roles.find((role) => role.id === u?.role_id);
+      const rCode = r?.code?.toLowerCase() || '';
+      if (rCode === 'marketing' || rCode === 'mkt') return true;
+      if (isMarketingDepartment(e.department_id)) return true;
+      const pos = e.position?.toLowerCase() || '';
+      return pos.includes('marketing') || pos.includes('mkt') || pos.includes('content') || pos.includes('truyền thông');
+    });
+  }, [employees, users, roles, departments]);
+
   const leaderEmployees = useMemo(() => {
     return employees.filter((e) => {
       const code = e.role_code?.toLowerCase() || '';
@@ -195,9 +228,22 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
 
   const eligibleHandoverEmployees = useMemo(() => {
     if (handoverRole === 'Sale') return saleEmployees;
-    if (handoverRole === 'Designer') return isProjectItDept ? itEmployees : designerEmployees;
+    if (handoverRole === 'Designer') {
+      if (isProjectMarketingDept) return marketingEmployees;
+      if (isProjectItDept) return itEmployees;
+      return designerEmployees;
+    }
     return leaderEmployees;
-  }, [handoverRole, saleEmployees, designerEmployees, itEmployees, leaderEmployees, isProjectItDept]);
+  }, [
+    handoverRole,
+    saleEmployees,
+    designerEmployees,
+    itEmployees,
+    marketingEmployees,
+    leaderEmployees,
+    isProjectItDept,
+    isProjectMarketingDept,
+  ]);
 
   if (!project) return null;
 
@@ -360,7 +406,11 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                     </div>
                     <div>
                       <span className="text-xs text-slate-500 block">
-                        {isProjectItDept ? 'Nhân viên IT phụ trách' : 'Designer chính'}
+                        {isProjectMarketingDept
+                          ? 'Nhân viên Marketing phụ trách'
+                          : isProjectItDept
+                          ? 'Nhân viên IT phụ trách'
+                          : 'Designer chính'}
                       </span>
                       <span className="font-semibold text-emerald-700">{designer?.full_name || 'Chưa phân công'}</span>
                     </div>
@@ -1115,7 +1165,11 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                   >
                     <option value="Sale">Sale phụ trách chính</option>
                     <option value="Designer">
-                      {isProjectItDept ? 'Nhân viên IT phụ trách' : 'Designer phụ trách chính'}
+                      {isProjectMarketingDept
+                        ? 'Nhân viên Marketing phụ trách'
+                        : isProjectItDept
+                        ? 'Nhân viên IT phụ trách'
+                        : 'Designer phụ trách chính'}
                     </option>
                     <option value="Trưởng nhóm">Trưởng nhóm quản lý</option>
                   </select>
@@ -1125,7 +1179,15 @@ export const ProjectDetailModal: React.FC<Props> = ({ project, onClose }) => {
                     className="px-3 py-2 text-xs rounded-lg border border-slate-300 bg-white"
                   >
                     <option value="">
-                      -- Chọn {handoverRole === 'Designer' && isProjectItDept ? 'Nhân viên IT' : handoverRole} ({eligibleHandoverEmployees.length}) --
+                      -- Chọn{' '}
+                      {handoverRole === 'Designer'
+                        ? isProjectMarketingDept
+                          ? 'Nhân viên Marketing'
+                          : isProjectItDept
+                          ? 'Nhân viên IT'
+                          : 'Designer'
+                        : handoverRole}{' '}
+                      ({eligibleHandoverEmployees.length}) --
                     </option>
                     {eligibleHandoverEmployees.map((e) => (
                       <option key={e.id} value={e.id}>

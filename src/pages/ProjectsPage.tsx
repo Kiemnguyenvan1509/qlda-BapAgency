@@ -116,6 +116,24 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
     );
   };
 
+  // Nhận diện phòng ban có phải là Phòng Marketing hay không
+  const isMarketingDepartment = (deptId?: string | null) => {
+    if (!deptId) return false;
+    const d = departments.find((item) => item.id === deptId);
+    if (!d) return false;
+    const name = d.name?.trim().toLowerCase() || '';
+    const code = d.code?.trim().toLowerCase() || '';
+    return (
+      code === 'marketing' ||
+      code === 'mkt' ||
+      code.includes('marketing') ||
+      code.includes('mkt') ||
+      name.includes('marketing') ||
+      name.includes('mkt') ||
+      name.includes('maketing')
+    );
+  };
+
   // Lọc chỉ những nhân sự thuộc vai trò Designer
   const designerEmployees = useMemo(() => {
     return employees.filter((e) => {
@@ -143,12 +161,28 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
     });
   }, [employees, users, roles, departments]);
 
+  // Lọc chỉ những nhân sự thuộc vai trò Marketing hoặc Phòng Marketing
+  const marketingEmployees = useMemo(() => {
+    return employees.filter((e) => {
+      const code = e.role_code?.toLowerCase() || '';
+      if (code === 'marketing' || code === 'mkt') return true;
+      const u = users.find((user) => user.employee_id === e.id);
+      const r = roles.find((role) => role.id === u?.role_id);
+      const rCode = r?.code?.toLowerCase() || '';
+      if (rCode === 'marketing' || rCode === 'mkt') return true;
+      if (isMarketingDepartment(e.department_id)) return true;
+      const pos = e.position?.toLowerCase() || '';
+      return pos.includes('marketing') || pos.includes('mkt') || pos.includes('content') || pos.includes('truyền thông');
+    });
+  }, [employees, users, roles, departments]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [jobFilter, setJobFilter] = useState('all');
   const [saleFilter, setSaleFilter] = useState('all');
   const [designerFilter, setDesignerFilter] = useState('all');
   const [itFilter, setItFilter] = useState('all');
+  const [marketingFilter, setMarketingFilter] = useState('all');
   const [showArchived, setShowArchived] = useState(false);
 
   const [sortField, setSortField] = useState<'created_at' | 'deadline' | 'revenue_before_tax' | 'project_code'>('created_at');
@@ -251,6 +285,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
         if (saleFilter !== 'all' && p.sale_id !== saleFilter) return false;
         if (designerFilter !== 'all' && p.designer_id !== designerFilter) return false;
         if (itFilter !== 'all' && p.designer_id !== itFilter) return false;
+        if (marketingFilter !== 'all' && p.designer_id !== marketingFilter) return false;
         if (searchTerm.trim()) {
           const q = searchTerm.toLowerCase();
           const cust = customers.find((c) => c.id === p.customer_id);
@@ -272,7 +307,7 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
         if (vA > vB) return sortAsc ? 1 : -1;
         return 0;
       });
-  }, [scopedProjects, showArchived, statusFilter, jobFilter, saleFilter, designerFilter, itFilter, searchTerm, sortField, sortAsc, customers]);
+  }, [scopedProjects, showArchived, statusFilter, jobFilter, saleFilter, designerFilter, itFilter, marketingFilter, searchTerm, sortField, sortAsc, customers]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pagedProjects = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -502,7 +537,10 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
             value={designerFilter}
             onChange={(e) => {
               setDesignerFilter(e.target.value);
-              if (e.target.value !== 'all') setItFilter('all');
+              if (e.target.value !== 'all') {
+                setItFilter('all');
+                setMarketingFilter('all');
+              }
               setPage(1);
             }}
             className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"
@@ -519,7 +557,10 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
             value={itFilter}
             onChange={(e) => {
               setItFilter(e.target.value);
-              if (e.target.value !== 'all') setDesignerFilter('all');
+              if (e.target.value !== 'all') {
+                setDesignerFilter('all');
+                setMarketingFilter('all');
+              }
               setPage(1);
             }}
             className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"
@@ -528,6 +569,26 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
             {itEmployees.map((e) => (
               <option key={e.id} value={e.id}>
                 IT: {e.full_name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={marketingFilter}
+            onChange={(e) => {
+              setMarketingFilter(e.target.value);
+              if (e.target.value !== 'all') {
+                setDesignerFilter('all');
+                setItFilter('all');
+              }
+              setPage(1);
+            }}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"
+          >
+            <option value="all">Tất cả Marketing ({marketingEmployees.length})</option>
+            {marketingEmployees.map((e) => (
+              <option key={e.id} value={e.id}>
+                Marketing: {e.full_name}
               </option>
             ))}
           </select>
@@ -1041,7 +1102,9 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    {isItDepartment(newProj.department_id)
+                    {isMarketingDepartment(newProj.department_id)
+                      ? 'Nhân viên Marketing phụ trách (Ghi nhận 100% DT)'
+                      : isItDepartment(newProj.department_id)
                       ? 'Nhân viên IT phụ trách (Ghi nhận 100% DT)'
                       : 'Designer phụ trách chính (Ghi nhận 100% DT)'}
                   </label>
@@ -1050,7 +1113,16 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                     onChange={(e) => setNewProj({ ...newProj, designer_id: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white"
                   >
-                    {isItDepartment(newProj.department_id) ? (
+                    {isMarketingDepartment(newProj.department_id) ? (
+                      <>
+                        <option value="">-- Chọn Nhân viên Marketing ({marketingEmployees.length}) --</option>
+                        {marketingEmployees.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            [{e.employee_code}] {e.full_name}
+                          </option>
+                        ))}
+                      </>
+                    ) : isItDepartment(newProj.department_id) ? (
                       <>
                         <option value="">-- Chọn Nhân viên IT ({itEmployees.length}) --</option>
                         {itEmployees.map((e) => (
@@ -1078,7 +1150,11 @@ export const ProjectsPage: React.FC<Props> = ({ onOpenExcelImport }) => {
                     value={newProj.department_id}
                     onChange={(e) => {
                       const nextDeptId = e.target.value;
-                      const nextPool = isItDepartment(nextDeptId) ? itEmployees : designerEmployees;
+                      const nextPool = isMarketingDepartment(nextDeptId)
+                        ? marketingEmployees
+                        : isItDepartment(nextDeptId)
+                        ? itEmployees
+                        : designerEmployees;
                       const keepCurrent = nextPool.some((emp) => emp.id === newProj.designer_id);
                       setNewProj({
                         ...newProj,

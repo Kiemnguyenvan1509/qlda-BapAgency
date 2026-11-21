@@ -42,6 +42,38 @@ export const RevenuePage: React.FC = () => {
     return /\bit\b/.test(pos) || pos.includes('lập trình') || pos.includes('kỹ thuật');
   };
 
+  const isMarketingDepartment = (deptId?: string | null) => {
+    if (!deptId) return false;
+    const d = departments.find((item) => item.id === deptId);
+    if (!d) return false;
+    const name = d.name?.trim().toLowerCase() || '';
+    const code = d.code?.trim().toLowerCase() || '';
+    return (
+      code === 'marketing' ||
+      code === 'mkt' ||
+      code.includes('marketing') ||
+      code.includes('mkt') ||
+      name.includes('marketing') ||
+      name.includes('mkt') ||
+      name.includes('maketing')
+    );
+  };
+
+  const isMarketingEmployee = (empId?: string | null) => {
+    if (!empId) return false;
+    const e = employees.find((item) => item.id === empId);
+    if (!e) return false;
+    const code = e.role_code?.toLowerCase() || '';
+    if (code === 'marketing' || code === 'mkt') return true;
+    const u = users.find((user) => user.employee_id === e.id);
+    const r = roles.find((role) => role.id === u?.role_id);
+    const rCode = r?.code?.toLowerCase() || '';
+    if (rCode === 'marketing' || rCode === 'mkt') return true;
+    if (isMarketingDepartment(e.department_id)) return true;
+    const pos = e.position?.toLowerCase() || '';
+    return pos.includes('marketing') || pos.includes('mkt') || pos.includes('content') || pos.includes('truyền thông');
+  };
+
   const activeProjects = useMemo(() => {
     return scopedProjects.filter((p) => {
       if (p.is_archived || p.status === 'Hủy dự án' || p.contract_status === 'Hủy') return false;
@@ -65,7 +97,7 @@ export const RevenuePage: React.FC = () => {
     return { beforeTax, vat, afterTax };
   }, [activeProjects]);
 
-  // Báo cáo doanh thu theo Sale, Designer & IT (Quy tắc 4: cả Sale và Designer/IT được ghi nhận toàn bộ 100% doanh thu của dự án)
+  // Báo cáo doanh thu theo Sale, Designer, IT & Marketing (Quy tắc 4: ghi nhận 100% doanh thu của dự án)
   const staffRevenue = useMemo(() => {
     const saleRows: Array<{
       id: string;
@@ -79,14 +111,28 @@ export const RevenuePage: React.FC = () => {
     }> = [];
     const designerRows: typeof saleRows = [];
     const itRows: typeof saleRows = [];
+    const marketingRows: typeof saleRows = [];
 
     const saleMap = new Map<string, (typeof saleRows)[0]>();
     const desMap = new Map<string, (typeof saleRows)[0]>();
     const itMap = new Map<string, (typeof saleRows)[0]>();
+    const marketingMap = new Map<string, (typeof saleRows)[0]>();
 
-    // Khởi tạo sẵn danh sách nhân sự thuộc vai trò IT / Phòng IT để luôn hiển thị trên bảng
+    // Khởi tạo sẵn danh sách nhân sự thuộc IT và Marketing để luôn hiển thị trên bảng
     for (const emp of employees) {
-      if (emp.work_status !== 'Đã nghỉ việc' && isItEmployee(emp.id)) {
+      if (emp.work_status === 'Đã nghỉ việc') continue;
+      if (isMarketingEmployee(emp.id)) {
+        marketingMap.set(emp.id, {
+          id: emp.id,
+          code: emp.employee_code || 'MKT',
+          name: emp.full_name,
+          projectCount: 0,
+          beforeTax: 0,
+          afterTax: 0,
+          confirmedPaid: 0,
+          debt: 0,
+        });
+      } else if (isItEmployee(emp.id)) {
         itMap.set(emp.id, {
           id: emp.id,
           code: emp.employee_code || 'IT',
@@ -124,12 +170,13 @@ export const RevenuePage: React.FC = () => {
 
       if (p.designer_id) {
         const emp = employees.find((e) => e.id === p.designer_id);
-        const belongsToIt = isItDepartment(p.department_id) || isItEmployee(p.designer_id);
-        const targetMap = belongsToIt ? itMap : desMap;
+        const belongsToMarketing = isMarketingDepartment(p.department_id) || isMarketingEmployee(p.designer_id);
+        const belongsToIt = !belongsToMarketing && (isItDepartment(p.department_id) || isItEmployee(p.designer_id));
+        const targetMap = belongsToMarketing ? marketingMap : belongsToIt ? itMap : desMap;
         const cur = targetMap.get(p.designer_id) || {
           id: p.designer_id,
-          code: emp?.employee_code || (belongsToIt ? 'IT' : 'DES'),
-          name: emp?.full_name || (belongsToIt ? 'Nhân viên IT' : 'Designer'),
+          code: emp?.employee_code || (belongsToMarketing ? 'MKT' : belongsToIt ? 'IT' : 'DES'),
+          name: emp?.full_name || (belongsToMarketing ? 'Nhân viên Marketing' : belongsToIt ? 'Nhân viên IT' : 'Designer'),
           projectCount: 0,
           beforeTax: 0,
           afterTax: 0,
@@ -148,10 +195,12 @@ export const RevenuePage: React.FC = () => {
     saleMap.forEach((v) => saleRows.push(v));
     desMap.forEach((v) => designerRows.push(v));
     itMap.forEach((v) => itRows.push(v));
+    marketingMap.forEach((v) => marketingRows.push(v));
     return {
       sales: saleRows.sort((a, b) => b.beforeTax - a.beforeTax),
       designers: designerRows.sort((a, b) => b.beforeTax - a.beforeTax),
       itStaff: itRows.sort((a, b) => b.beforeTax - a.beforeTax),
+      marketingStaff: marketingRows.sort((a, b) => b.beforeTax - a.beforeTax),
     };
   }, [activeProjects, employees, departments, users, roles, getProjectFinancials]);
 
@@ -205,7 +254,7 @@ export const RevenuePage: React.FC = () => {
               tab === 'staff_revenue' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
             }`}
           >
-            2. Doanh thu ghi nhận theo Sale, Designer & IT
+            2. Doanh thu ghi nhận theo Sale, Designer, IT & Marketing
           </button>
           <button
             onClick={() => setTab('revisions')}
@@ -303,8 +352,12 @@ export const RevenuePage: React.FC = () => {
                         <td className="px-4 py-3">
                           <div>Sale: {sale?.full_name || '—'}</div>
                           <div className="text-emerald-700">
-                            {isItDepartment(p.department_id) || isItEmployee(p.designer_id) ? 'IT' : 'Designer'}:{' '}
-                            {des?.full_name || '—'}
+                            {isMarketingDepartment(p.department_id) || isMarketingEmployee(p.designer_id)
+                              ? 'Marketing'
+                              : isItDepartment(p.department_id) || isItEmployee(p.designer_id)
+                              ? 'IT'
+                              : 'Designer'}
+                            : {des?.full_name || '—'}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-slate-900">
@@ -395,7 +448,7 @@ export const RevenuePage: React.FC = () => {
           </div>
 
           {/* Bảng Doanh thu Nhân viên IT */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden lg:col-span-2">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="px-4 py-3 bg-cyan-50 border-b border-cyan-100 font-bold text-xs text-cyan-950">
               Doanh Thu Ghi Nhận Theo Nhân Viên IT Phụ Trách (100% Giá Trị Dự Án)
             </div>
@@ -431,6 +484,51 @@ export const RevenuePage: React.FC = () => {
                           {formatCurrency(it.confirmedPaid)}
                         </td>
                         <td className="px-3 py-2.5 text-right text-rose-600">{formatCurrency(it.debt)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Bảng Doanh thu Nhân viên Marketing */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="px-4 py-3 bg-fuchsia-50 border-b border-fuchsia-100 font-bold text-xs text-fuchsia-950">
+              Doanh Thu Ghi Nhận Theo Nhân Viên Marketing Phụ Trách (100% Giá Trị Dự Án)
+            </div>
+            <div className="overflow-x-auto touch-scroll">
+              <table className="w-full text-xs text-left min-w-[500px]">
+                <thead className="bg-slate-100 text-slate-600">
+                  <tr>
+                    <th className="px-3 py-2.5">Nhân sự Marketing</th>
+                    <th className="px-3 py-2.5 text-center">Số DA</th>
+                    <th className="px-3 py-2.5 text-right">DT Trước thuế</th>
+                    <th className="px-3 py-2.5 text-right">Thực thu DA</th>
+                    <th className="px-3 py-2.5 text-right">Công nợ DA</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {staffRevenue.marketingStaff.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
+                        Chưa có dữ liệu nhân sự hoặc dự án Marketing
+                      </td>
+                    </tr>
+                  ) : (
+                    staffRevenue.marketingStaff.map((mkt) => (
+                      <tr key={mkt.id}>
+                        <td className="px-3 py-2.5 font-semibold">
+                          [{mkt.code}] {mkt.name}
+                        </td>
+                        <td className="px-3 py-2.5 text-center font-bold">{mkt.projectCount}</td>
+                        <td className="px-3 py-2.5 text-right font-bold text-fuchsia-700">
+                          {formatCurrency(mkt.beforeTax)}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-emerald-700">
+                          {formatCurrency(mkt.confirmedPaid)}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-rose-600">{formatCurrency(mkt.debt)}</td>
                       </tr>
                     ))
                   )}
